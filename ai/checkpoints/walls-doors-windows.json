@@ -1,0 +1,50 @@
+{
+  "base_channels": 8,
+  "out_channels": 4,
+  "classes": [
+    "background",
+    "wall",
+    "door",
+    "window"
+  ],
+  "size": 128,
+  "preprocessing": {
+    "color": "RGB",
+    "scale": "0..1",
+    "resize": "bilinear"
+  },
+  "epoch": 18,
+  "val_metrics": {
+    "loss": 1.7089391708374024,
+    "wall": {
+      "iou": 0.4214219759926131,
+      "dice": 0.5929582954397817,
+      "intersection": 9128,
+      "union": 21660,
+      "predicted": 17602,
+      "actual": 13186
+    },
+    "door": {
+      "iou": 0.07058823529411765,
+      "dice": 0.13186813186813187,
+      "intersection": 138,
+      "union": 1955,
+      "predicted": 794,
+      "actual": 1299
+    },
+    "window": {
+      "iou": 0.19390883021853061,
+      "dice": 0.32483021368229253,
+      "intersection": 1961,
+      "union": 10113,
+      "predicted": 8432,
+      "actual": 3642
+    },
+    "macro_iou": 0.2286396805017538
+  },
+  "seed": 42,
+  "dataset": "CubiCasa5K mini official split",
+  "train_samples": 40,
+  "val_samples": 10,
+  "limited": false
+}

@@ -51,8 +51,8 @@ export function createApp() {
     if (req.method === 'OPTIONS') return json(res, 204, null);
     try {
       const url = new URL(req.url, 'http://localhost');
-      if (req.method === 'GET' && ['/', '/index.html', '/floorplan.html'].includes(url.pathname)) {
-        const filename = url.pathname === '/floorplan.html' ? 'floorplan.html' : 'index.html';
+      if (req.method === 'GET' && ['/', '/index.html', '/floorplan.html', '/room-select.html'].includes(url.pathname)) {
+        const filename = url.pathname === '/floorplan.html' ? 'floorplan.html' : url.pathname === '/room-select.html' ? 'room-select.html' : 'index.html';
         const html = await readFile(path.join(frontendDir, filename));
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(html);

@@ -125,6 +125,9 @@ test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () =>
     assert.equal(response.status, 200);
     assert.match(await response.text(), page === '/' ? /<title>RoomAI/ : /Roommate/i);
   }
+  const mobile = await fetch(base + '/room-select.html');
+  assert.equal(mobile.status, 200);
+  assert.match(await mobile.text(), /AI 방 선택/);
 });
 
 test('사용자가 제공한 두 평면도 이미지를 화면에 제공한다', async () => {
