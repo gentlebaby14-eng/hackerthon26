@@ -17,7 +17,7 @@ test('메인 방 선택 단계에는 현관·목적지·가구 배치 도구가 
   const controls=run('controls()'),visual=run('visual()');
   assert.match(controls,/방의 바닥을 터치/);
   assert.doesNotMatch(controls,/현관|목적지|90°|동선 계산|선택한 가구/);
-  assert.match(visual,/#111/);assert.match(visual,/#2284ef/);assert.match(visual,/#e23434/);
+  assert.doesNotMatch(visual,/#111/);assert.match(visual,/#2284ef/);assert.match(visual,/#e23434/);
   assert.match(controls,/disabled/);
 });
 

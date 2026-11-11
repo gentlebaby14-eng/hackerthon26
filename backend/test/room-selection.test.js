@@ -13,3 +13,11 @@ test('바깥 영역과 벽 터치는 거절한다',()=>{
   assert.throws(()=>selectRoom({labels,point:[0,0]}),/도면 바깥/);
   assert.throws(()=>selectRoom({labels,point:[17/35,12/25]}),/방 바닥/);
 });
+test('창문은 막힌 경계이며 선택 영역에 포함하지 않는다',()=>{
+  const windows=labels.map(row=>row.replaceAll('2','3'));
+  const result=selectRoom({labels:windows,point:[.25,.5]});
+  assert.equal(result.room[12][8],'1');
+  assert.equal(result.room[12][17],'0');
+  assert.equal(result.room[12][26],'0');
+  assert.throws(()=>selectRoom({labels:windows,point:[17/35,12/25]}),/방 바닥/);
+});
