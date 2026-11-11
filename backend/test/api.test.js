@@ -111,6 +111,6 @@ test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () =>
   for (const page of ['/', '/floorplan.html']) {
     const response = await fetch(base + page);
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /Roommate/i);
+    assert.match(await response.text(), page === '/' ? /<title>루마이/ : /Roommate/i);
   }
 });
