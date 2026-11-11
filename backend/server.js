@@ -1,3 +1,4 @@
+import './config.js';
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { readFile } from 'node:fs/promises';
