@@ -6,4 +6,4 @@
 
 ## 시연 백엔드
 
-`roommate-redesign (5).html`(프론트 3)을 기준으로 만든 상품 검색·배치 비교·고정 답변 챗봇 API는 [`backend/README.md`](backend/README.md)에 실행 방법과 요청 예시가 있습니다. Node.js 20 이상에서 `cd backend` 후 `npm start`를 실행하세요.
+`프론트 3`을 기준으로 만든 상품 검색·배치 비교·고정 답변 챗봇 API는 [`backend/README.md`](backend/README.md)에 실행 방법과 요청 예시가 있습니다. 최신 화면 파일은 `UI.html`입니다. Node.js 20 이상에서 `cd backend` 후 `npm start`를 실행하세요.

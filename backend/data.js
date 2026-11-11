@@ -1,4 +1,4 @@
-// 프론트 3(roommate-redesign (5).html)의 시연 데이터와 좌표를 맞춘다.
+// 프론트 3의 시연 데이터와 좌표를 맞춘다. 최신 화면 파일명은 UI.html이다.
 export const routineExample = '내가 책상에서 공부하는 동안 룸메가 건조대를 펼친 채 현관에서 옷장으로 가요.';
 
 export const products = Object.freeze([
