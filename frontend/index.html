@@ -690,6 +690,22 @@ const chat=$('#chat');function askChat(raw){if(!raw.trim())return;$('#chat-quest
 .flow .detection-photo{max-width:100%;width:100%;max-height:140px;object-fit:contain;background:#eee8dd;border-radius:10px}
 .flow .plan-card canvas{cursor:crosshair}
 .flow .product-list{overflow:visible}
+/* Give the furniture editor a larger, touch-friendly plan and prominent add actions. */
+#workspace.flow.layout-editor{display:flex;flex-direction:column;overflow-y:auto;gap:12px}
+#workspace.flow.layout-editor .visual{flex:none;min-height:300px;height:clamp(300px,48dvh,560px);padding:5px}
+#workspace.flow.layout-editor .panel{flex:none;overflow:visible;padding:8px 2px}
+.layout-editor .plan-card,.layout-editor .plan-canvas{height:100%;width:100%;margin:0;min-height:0}
+.layout-editor #layout-plan{width:100%;height:100%;object-fit:contain;touch-action:none}
+.layout-editor .legend{font-size:10px}
+.layout-add{display:grid;grid-template-columns:1.35fr 1fr;gap:8px;margin:0 0 14px}
+.layout-add button{min-height:50px;padding:10px;border-radius:14px;font-size:14px;font-weight:800}
+.layout-add button:first-child{background:#702748;color:white;border:2px solid #702748;box-shadow:0 4px 12px #70274830}
+.layout-add button:last-child{background:#fff4e7;color:#702748;border:2px solid #a7667e}
+.layout-add button:disabled{opacity:.45;box-shadow:none}
+.selected-size{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:10px}
+.selected-size strong{font-size:13px}.selected-size small{font-size:11px;color:var(--muted)}
+.layout-editor summary{font-size:12px;margin:9px 0}.layout-editor .room-scale{padding:5px 10px;background:#eee5da;border-radius:10px}
+.layout-editor .footer{bottom:0;z-index:2}
 </style>
 <script>
 const flowTitles = ['','방 맞춤 조건 선택','평면도에서 방 선택','내 방에 어울리는 가구','방에 가구 배치하기','동선 시뮬레이션'];
@@ -697,7 +713,7 @@ const flowTabs = ['조건 선택','방 선택','가구 찾기','가구 배치','
 const draft = {page:0, photo:null, photoUrl:'', photoStatus:'idle', photoMessage:'',
   items:[], active:null, picks:[], route:null, compare:null, view:'after', error:'', uploadToken:0};
 const furnitureNames = {bed:'침대',desk:'책상',cabinet:'수납장',sofa:'소파',couch:'소파',chair:'의자',table:'테이블',wardrobe:'옷장',bookshelf:'책장'};
-const nominalSizes = {bed:[100,200],desk:[100,55],cabinet:[75,40],sofa:[130,70],couch:[130,70],chair:[45,45],table:[90,60],wardrobe:[90,55],bookshelf:[70,30]};
+const nominalSizes = {bed:[110,200],desk:[100,55],cabinet:[75,40],sofa:[130,70],couch:[130,70],chair:[45,45],table:[90,60],wardrobe:[90,55],bookshelf:[70,30]};
 const usableImages = ['image/jpeg','image/png','image/webp'];
 const selectedItem = () => draft.items.find(item => item.id === draft.active);
 const safe = escapeHtml;
@@ -753,7 +769,6 @@ function flowControls() {
     const rooms=['침실','거실','서재','학생방','아기방','다용도실'];
     return '<div class="condition-section"><strong>방 용도</strong><div class="multi-options">'+rooms.map(room=>'<button data-room-use="'+room+'" aria-pressed="'+(room===state.roomUse)+'">'+room+'</button>').join('')+'</div></div>'+
       '<div class="condition-section"><strong>찾는 가구</strong>'+multiOptions('needs',['침대','책상','옷장','화장대','장난감 수납장','놀이매트'])+'</div>'+
-      uploadControl('flow-room-photo','현재 방 사진',draft.photo?.name,'5페이지에서 YOLO가 현재 가구를 찾아요 · 선택')+
       '<div class="inputs">'+field('사용자 연령','age',state.roomUse==='아기방'?'개월':'세')+'<label class="field"><span>활동성</span><select data-field="activity">'+['차분함','보통','활동적'].map(value=>'<option '+(value===state.activity?'selected':'')+'>'+value+'</option>').join('')+'</select></label></div>'+
       uploadControl('flow-plan','방 평면도',state.photo?.name,'벽·문·창문 인식에 사용해요')+
       (draft.error?'<p class="result alert" role="status">'+safe(draft.error)+'</p>':'')+
@@ -775,12 +790,12 @@ function flowControls() {
     const item=selectedItem();
     const name=item?safe(item.name):'';
     const photo=draft.photoUrl?'<details><summary>YOLO에 사용한 방 사진</summary><img class="detection-photo" src="'+draft.photoUrl+'" alt="업로드한 방 사진"></details>':'';
-    const sizeEditor=item?'<h2>'+name+'</h2><div class="inputs">'+dimension('가로','w',item.w)+dimension('세로','d',item.d)+'</div><div class="layout-tools"><button data-flow="rotate-item">90° 회전</button><button data-flow="remove-item">배치에서 빼기</button></div>':'';
-    return '<h2>현재 방에 있는 가구</h2><p class="room-note" role="status">'+safe(draft.photoMessage || (draft.photo?'방 사진 분석 대기 중':'2페이지에서 방 사진을 올리면 YOLO가 가구를 찾아요.'))+'</p>'+photo+
+    const sizeEditor=item?'<div class="selected-size"><strong>'+name+'</strong><small>'+item.w+' × '+item.d+' cm</small></div><p class="room-note">모서리의 흰색 점을 끌어 크기를 줄이거나 늘리세요.</p><details><summary>치수 직접 입력</summary><div class="inputs">'+dimension('가로','w',item.w)+dimension('세로','d',item.d)+'</div></details><div class="layout-tools"><button data-flow="rotate-item">90° 회전</button><button data-flow="remove-item">배치에서 빼기</button></div>':'';
+    return '<div class="layout-add"><button data-flow="add-products" '+(!unplacedProducts().length?'disabled':'')+'>＋ 고른 가구 추가하기</button><button data-flow="add-manual">＋ 직접 추가</button></div>'+uploadControl('flow-room-photo','방 사진으로 가구 자동 배치',draft.photo?.name,'사진을 올리거나 바꾸면 YOLO가 분석해 자동 배치해요')+'<p class="room-note" role="status">'+safe(draft.photoMessage || '방 사진을 올리면 현재 가구를 찾아 이 방에 배치해요.')+'</p>'+photo+
       (draft.photoStatus==='error'?'<button data-flow="retry-photo">YOLO 다시 실행</button>':'')+
       '<div class="layout-tools">'+draft.items.map(entry=>'<button class="chip" data-item-id="'+safe(entry.id)+'" aria-pressed="'+(entry.id===draft.active)+'">'+safe(entry.name)+(entry.source==='yolo'&&entry.confidence!==null?' · '+Math.round(entry.confidence*100)+'%':entry.source==='product'?' · 새 가구':'')+'</button>').join('')+'</div>'+
-      sizeEditor+'<div class="layout-tools"><button data-flow="add-products" '+(!unplacedProducts().length?'disabled':'')+'>고른 가구 추가하기 ＋</button><button data-flow="add-manual">직접 추가 ＋</button></div>'+
-      '<details><summary>선택한 방의 실제 가로·세로 · '+safe(roomWidth())+' × '+safe(roomDepth())+' cm</summary><div class="inputs">'+field('가로','width','mm')+field('세로','height','mm')+'</div></details>'+
+      sizeEditor+
+      '<details class="room-scale"><summary>방 크기 기준 · 약 '+safe(roomWidth())+' × '+safe(roomDepth())+' cm</summary><p class="room-note">도면에 적힌 방 치수와 다르면 수정하세요.</p><div class="inputs">'+field('가로','width','mm')+field('세로','height','mm')+'</div></details>'+
       '<p class="room-note" id="layout-message" role="status">'+layoutMessage()+'</p>'+
       flowFooter('동선 시뮬레이션','to-sim',!layoutFits());
   }
@@ -846,19 +861,15 @@ async function detectPhotoFurniture() {
   draft.photoMessage='YOLO가 사진에서 현재 가구를 찾고 있어요…';
   render();
   try {
-    const form=new FormData();
-    form.append('image',photo);
-    let response=await fetch('/api/v1/furniture/detect',{method:'POST',body:form});
-    if ([400,415].includes(response.status)) {
-      const image=await fileData(photo);
-      if(!current()) return;
-      response=await fetch('/api/v1/furniture/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image})});
-    }
+    const image=await fileData(photo);
+    if(!current()) return;
+    const response=await fetch('/api/v1/furniture/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image})});
     const data=await response.json();
     if(!response.ok) throw Error(data.error?.message || data.message || '가구 인식 API를 확인해 주세요.');
     const items=data.items ?? data.detections ?? data.furniture;
     if(!Array.isArray(items)) throw Error('가구 인식 응답 형식을 확인해 주세요.');
     if(!current()) return;
+    draft.items=draft.items.filter(item=>item.source!=='yolo');
     for(const detection of items) {
       const type=String(detection.type || detection.kind || detection.className || detection.label || '').toLowerCase();
       const [w,d]=nominalSizes[type] || [65,45];
@@ -889,8 +900,8 @@ function editorRect() {
   const b=roomBounds(), rows=state.structure.room, image=state.floorplanImage;
   const source={x:b.left/rows[0].length*image.naturalWidth,y:b.top/rows.length*image.naturalHeight,
     w:b.w/rows[0].length*image.naturalWidth,h:b.h/rows.length*image.naturalHeight};
-  const scale=Math.min(442/source.w,292/source.h);
-  const w=source.w*scale,h=source.h*scale;
+  const scale=Math.min(464/roomWidth(),310/roomDepth());
+  const w=roomWidth()*scale,h=roomDepth()*scale;
   return {source,x:(480-w)/2,y:(330-h)/2,w,h};
 }
 function paintLayout(canvas=$('#layout-plan')) {
@@ -907,7 +918,9 @@ function paintLayout(canvas=$('#layout-plan')) {
     const x=r.x+(item.x-w/2)*r.w,y=r.y+(item.y-d/2)*r.h;
     const selected=draft.page===4&&item.id===draft.active;
     box(ctx,x,y,w*r.w,d*r.h,4,item.source==='product'?'#d9a6b8e8':'#e2ccb0ef',selected?'#651d35':'#816756');
-    label(ctx,item.name.length>12?item.name.slice(0,11)+'…':item.name,r.x+item.x*r.w,r.y+item.y*r.h,'#492734',10);
+    label(ctx,item.name.length>12?item.name.slice(0,11)+'…':item.name,r.x+item.x*r.w,r.y+item.y*r.h-4,'#492734',/침대|bed/i.test(item.name)?8:10);
+    label(ctx,item.w+' × '+item.d+' cm',r.x+item.x*r.w,r.y+item.y*r.h+8,'#674b54',7);
+    if(selected)for(const [hx,hy] of resizeHandles(item))box(ctx,r.x+hx*r.w-5,r.y+hy*r.h-5,10,10,3,'#fff','#702748');
   }
   if(draft.page!==5) return;
   const result=draft.view==='before'?draft.compare:draft.route;
@@ -925,6 +938,18 @@ function paintLayout(canvas=$('#layout-plan')) {
   }
 }
 
+function resizeHandles(item) {
+  const {w,d}=footprint(item);
+  return [[item.x-w/2,item.y-d/2],[item.x+w/2,item.y-d/2],[item.x+w/2,item.y+d/2],[item.x-w/2,item.y+d/2]];
+}
+function resizeLayoutItem(item,anchor,point) {
+  const x=Math.max(0,Math.min(1,point[0])),y=Math.max(0,Math.min(1,point[1]));
+  const sx=x>=anchor[0]?1:-1,sy=y>=anchor[1]?1:-1;
+  const w=Math.max(10/roomWidth(),Math.abs(x-anchor[0])),d=Math.max(10/roomDepth(),Math.abs(y-anchor[1]));
+  const ex=Math.max(0,Math.min(1,anchor[0]+sx*w)),ey=Math.max(0,Math.min(1,anchor[1]+sy*d));
+  item.w=Math.round(Math.abs(ex-anchor[0])*roomWidth());item.d=Math.round(Math.abs(ey-anchor[1])*roomDepth());
+  item.x=(anchor[0]+ex)/2;item.y=(anchor[1]+ey)/2;
+}
 function bindLayout() {
   const canvas=$('#layout-plan');
   if(!canvas) return;
@@ -938,6 +963,9 @@ function bindLayout() {
   canvas.onpointerdown=event=>{
     if(draft.page!==4) return;
     const [x,y]=pointer(event);
+    const active=selectedItem(),r=editorRect(),rect=canvas.getBoundingClientRect(),scale=Math.min(rect.width/480,rect.height/330);
+    const handle=active?resizeHandles(active).findIndex(([hx,hy])=>Math.hypot((x-hx)*r.w*scale,(y-hy)*r.h*scale)<18):-1;
+    if(handle>=0){drag={item:active,anchor:resizeHandles(active)[(handle+2)%4]};event.preventDefault();canvas.setPointerCapture(event.pointerId);return;}
     const item=[...draft.items].reverse().find(entry=>{
       const {w,d}=footprint(entry);
       return Math.abs(entry.x-x)<=w/2&&Math.abs(entry.y-y)<=d/2;
@@ -951,8 +979,12 @@ function bindLayout() {
   canvas.onpointermove=event=>{
     if(!drag) return;
     const [x,y]=pointer(event);
-    drag.item.x=Math.min(.999,Math.max(.001,x+drag.dx));
-    drag.item.y=Math.min(.999,Math.max(.001,y+drag.dy));
+    if(drag.anchor)resizeLayoutItem(drag.item,drag.anchor,[x,y]);
+    else{
+      const {w,d}=footprint(drag.item);
+      drag.item.x=Math.max(w/2,Math.min(1-w/2,x+drag.dx));
+      drag.item.y=Math.max(d/2,Math.min(1-d/2,y+drag.dy));
+    }
     clearRoutes();
     paintLayout();
   };
@@ -1065,7 +1097,7 @@ render=function renderFlow() {
   $('.shell').dataset.intro=page===0;
   $('main').dataset.stage=page+1;
   ws.dataset.step=page+1;
-  ws.classList.toggle('flow',page>0);
+  ws.classList.toggle('flow',page>0);ws.classList.toggle('layout-editor',page===4);
   ws.classList.toggle('has-plan',[2,4,5].includes(page));
   $('#progress').innerHTML=flowTabs.map((title,i)=>'<li '+(page===i+1?'aria-current="step"':'')+'><button data-flow-page="'+(i+1)+'" '+(i+1>page?'disabled':'')+'>'+title+'</button></li>').join('');
   $('#headline').innerHTML=page===0?'가구를 들이기 전,<br>생활을 먼저 그려보세요.':flowTitles[page];
@@ -1129,6 +1161,7 @@ document.addEventListener('change',async event=>{
     draft.items=draft.items.filter(i=>i.source!=='yolo');
     clearRoutes();
     render();
+    if(draft.page===4) detectPhotoFurniture();
     return;
   }
   const token=++draft.uploadToken;
@@ -1162,7 +1195,7 @@ document.addEventListener('click',event=>{
   event.stopImmediatePropagation();
   const d=button.dataset;
   if(d.flowPage){flowGo(Number(d.flowPage));return;}
-  if(d.roomUse){state.roomUse=d.roomUse;render();return;}
+  if(d.roomUse){state.roomUse=d.roomUse;if(d.roomUse==='아기방'){state.width='3000';state.height='2400';}else if(d.roomUse==='침실'){state.width='3300';state.height='2700';}render();return;}
   if(d.multi==='needs'){
     state.needs=state.needs.includes(d.value)?state.needs.filter(value=>value!==d.value):[...state.needs,d.value];
     draft.picks=draft.picks.filter(id=>recommendProducts().some(p=>p.id===id));

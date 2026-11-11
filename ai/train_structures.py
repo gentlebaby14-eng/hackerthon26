@@ -84,7 +84,8 @@ def main():
         parser.error('공식 train/val 데이터가 비어 있습니다')
     train_loader = DataLoader(train_set, args.batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_set, args.batch_size, shuffle=False, num_workers=0)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else
+                          'mps' if torch.backends.mps.is_available() else 'cpu')
     model = UNet(args.base_channels, out_channels=len(CLASS_NAMES)).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     output = Path(args.out); output.parent.mkdir(parents=True, exist_ok=True)
