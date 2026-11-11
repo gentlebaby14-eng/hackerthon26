@@ -1,0 +1,19 @@
+{
+  "source": "train:ai/data/cubicasa5k-mini/high_quality/14413",
+  "image_size": [
+    904,
+    766
+  ],
+  "classes": {
+    "0": "background",
+    "1": "wall",
+    "2": "door",
+    "3": "window"
+  },
+  "polygons": {
+    "wall": 12,
+    "door": 6,
+    "window": 2
+  },
+  "door_window_overlap_pixels": 0
+}

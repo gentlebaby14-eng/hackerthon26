@@ -62,8 +62,10 @@ def main():
     model.load_state_dict(checkpoint['model']); model.eval()
     dataset = structure_dataset(args.data_root, 'test', checkpoint['size'])
     metrics = validate(model, DataLoader(dataset, args.batch_size, shuffle=False, num_workers=0), 'cpu')
+    dataset_name = ('CubiCasa5K mini official test' if 'mini' in Path(args.data_root).name.lower()
+                    else 'CubiCasa5K official test')
     report = {'checkpoint_epoch': checkpoint['epoch'], 'test_samples': len(dataset),
-              'dataset': 'CubiCasa5K official test', 'metrics': metrics}
+              'dataset': dataset_name, 'metrics': metrics}
     Path(args.report).parent.mkdir(parents=True, exist_ok=True)
     Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
 

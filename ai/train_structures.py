@@ -89,6 +89,8 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
     output = Path(args.out); output.parent.mkdir(parents=True, exist_ok=True)
     best = -1.0
+    dataset_name = ('CubiCasa5K mini official split' if 'mini' in Path(args.data_root).name.lower()
+                    else 'CubiCasa5K official train/val')
     print(f'device={device}, train={len(train_set)}, val={len(val_set)}', flush=True)
     for epoch in range(1, args.epochs + 1):
         model.train(); train_loss = 0.0
@@ -106,7 +108,8 @@ def main():
                 'out_channels': len(CLASS_NAMES), 'classes': list(CLASS_NAMES), 'size': args.size,
                 'preprocessing': {'color': 'RGB', 'scale': '0..1', 'resize': 'bilinear'},
                 'epoch': epoch, 'val_metrics': metrics, 'seed': args.seed,
-                'dataset': 'CubiCasa5K official train/val', 'limited': args.limit is not None}
+                'dataset': dataset_name, 'train_samples': len(train_set), 'val_samples': len(val_set),
+                'limited': args.limit is not None}
             torch.save(checkpoint, output)
             output.with_suffix('.json').write_text(json.dumps({k: v for k, v in checkpoint.items() if k != 'model'}, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f'best_val_macro_iou={best:.4f}; checkpoint={output}', flush=True)

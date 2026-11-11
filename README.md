@@ -29,5 +29,6 @@ Node.js 20 이상에서 `backend` 폴더의 `npm start`를 실행하고 http://1
 - 생활 패턴과 활동성을 수정할 수 있습니다. 활동적일수록 예시 이동 경로와 탐색 범위가 커집니다.
 - 시뮬레이션은 예시 방의 이동 범위와 선택 가구의 오른쪽 앞 모서리를 비교하며 실제 안전성을 판정하지 않습니다.
 - 기존 U-Net 도면 분석 화면은 `/floorplan.html`에서 유지됩니다. 학습과 API 설명은 [ai/README.md](ai/README.md), [backend/README.md](backend/README.md)를 참고하세요.
+- 모바일 발표용 벽 인식·방 선택 화면은 `/room-select.html`입니다. `예시 평면도 → AI로 구조 찾기 → 방 바닥 터치` 순서로 확인합니다.
 
 검증: `backend` 폴더에서 `npm test`.
