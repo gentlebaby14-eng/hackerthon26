@@ -5,6 +5,8 @@ checkpoints/*
 !checkpoints/walls-doors-windows.pt
 !checkpoints/walls-doors-windows.json
 !checkpoints/walls-doors-windows-evaluation.json
+!checkpoints/child-trajectory-gru.pt
+!checkpoints/child-trajectory-gru.json
 data/
 .venv/
 __pycache__/

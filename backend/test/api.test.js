@@ -123,7 +123,7 @@ test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () =>
   for (const page of ['/', '/floorplan.html']) {
     const response = await fetch(base + page);
     assert.equal(response.status, 200);
-    assert.match(await response.text(), page === '/' ? /<title>RoomAI/ : /Roommate/i);
+    assert.match(await response.text(), page === '/' ? /<title>RoomAI/ : /RoomAI|Roommate/i);
   }
   const mobile = await fetch(base + '/room-select.html');
   assert.equal(mobile.status, 200);
@@ -160,4 +160,14 @@ test('RoomAI 스타일과 벽 전용 U-Net 상태를 제공한다', async () => 
   const invalid = await request('/api/v1/walls/analyze', 'POST', { image: 'invalid' });
   assert.equal(invalid.status, 400);
   assert.equal(invalid.data.error.code, 'INVALID_IMAGE');
+});
+
+test('GRU 체크포인트가 없으면 예측을 시작하지 않는다', async () => {
+  const status = await request('/api/v1/trajectory/status');
+  assert.equal(status.status, 200);
+  if (!status.data.ready) {
+    const result = await request('/api/v1/trajectory/predict', 'POST', { points: Array(10).fill([.5, .5]) });
+    assert.equal(result.status, 503);
+    assert.equal(result.data.error.code, 'TRAJECTORY_MODEL_NOT_READY');
+  }
 });

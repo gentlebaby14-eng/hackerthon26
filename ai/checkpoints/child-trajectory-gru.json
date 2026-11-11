@@ -1,0 +1,15 @@
+{
+  "model": "TrajectoryGRU",
+  "checkpoint": "child-trajectory-gru.pt",
+  "input": "10 normalized [x,y] positions",
+  "output": "one of 9 next-step directions",
+  "source": "https://zenodo.org/records/3382145",
+  "source_files": ["Exp_1_run_1.tsv", "Exp_1_run_2.tsv", "Exp_1_run_3.tsv", "Exp_1_run_4.tsv"],
+  "split": "run 1 and 2 train, run 3 validation, run 4 test",
+  "train_samples": 16001,
+  "validation_samples": 8174,
+  "test_samples": 8526,
+  "test_accuracy": 0.9696,
+  "majority_class_baseline": 0.4762,
+  "limitation": "Adult indoor motion, not child behavior; next direction only, no goal or obstacle input. Adjacent frames are highly correlated."
+}

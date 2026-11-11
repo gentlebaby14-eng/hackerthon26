@@ -8,7 +8,9 @@ import { ApiError } from './logic.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const script = path.join(root, 'ai', 'furniture', 'detect_pretrained.py');
-const python = process.env.PYTHON ?? (existsSync(path.join(root, 'ai', '.venv', 'bin', 'python')) ? path.join(root, 'ai', '.venv', 'bin', 'python') : 'python3');
+const winPython = path.join(root, 'ai', '.venv', 'Scripts', 'python.exe');
+const unixPython = path.join(root, 'ai', '.venv', 'bin', 'python');
+const python = process.env.PYTHON ?? (existsSync(winPython) ? winPython : existsSync(unixPython) ? unixPython : process.platform === 'win32' ? 'python' : 'python3');
 
 export async function detectFurniture(image) {
   if (typeof image !== 'string') throw new ApiError(400, 'INVALID_IMAGE', '가구 사진을 올려 주세요.');
@@ -20,7 +22,7 @@ export async function detectFurniture(image) {
   try {
     await writeFile(file, bytes);
     const output = await new Promise((resolve, reject) => {
-      const child = spawn(python, [script, file], { cwd: root }); let out=''; let err='';
+      const child = spawn(python, [script, file], { cwd: root, windowsHide: true }); let out=''; let err='';
       const timer=setTimeout(()=>child.kill(),120000); child.stdout.on('data',c=>out+=c); child.stderr.on('data',c=>err+=c.toString().slice(-3000));
       child.on('error',reject); child.on('close',code=>{clearTimeout(timer); if(code) reject(new Error(err || `detector exited ${code}`)); else {try{resolve(JSON.parse(out))}catch{reject(new Error('가구 인식 결과를 읽을 수 없습니다.'))}}});
     });

@@ -47,3 +47,10 @@ test('공식 벽 정답 샘플에서 가구 이동 전후 경로 길이가 달�
   assert.equal(result.after.reachable, true);
   assert.ok(result.after.lengthCm < result.before.lengthCm);
 });
+
+test('YOLO 배치 가구 목록이 두 A* 경로 모두에 장애물로 반영된다', () => {
+  const without = compareRoutes(request);
+  const withItem = compareRoutes({ ...request, layoutItems: [{ box: { x: .47, y: .45, width: .06, height: .10 }, widthCm: 40, depthCm: 48 }] });
+  assert.equal(without.after.reachable, true);
+  assert.equal(withItem.after.reachable, false);
+});

@@ -9,7 +9,7 @@ import { ApiError, chat, searchProducts, simulate } from './logic.js';
 import { compareRoutes } from './routes.js';
 import { analyzeFloorplan, analyzeWalls, modelStatus, wallModelStatus } from './model-service.js';
 import { detectFurniture } from './furniture-service.js';
-import { predictTrajectory } from './trajectory-service.js';
+import { predictTrajectory, trajectoryStatus } from './trajectory-service.js';
 
 const maxBodyBytes = 32 * 1024;
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend');
@@ -140,6 +140,7 @@ export function createApp() {
         const body = await readJson(req, 64 * 1024);
         return json(res, 200, await predictTrajectory(body.points));
       }
+      if (req.method === 'GET' && url.pathname === '/api/v1/trajectory/status') return json(res, 200, trajectoryStatus());
       if (req.method === 'POST' && url.pathname === '/api/v1/routes/compare') {
         const body = await readJson(req, 512 * 1024);
         return json(res, 200, compareRoutes(body));

@@ -30,6 +30,8 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `POST /api/v1/walls/analyze` | 업로드 도면의 벽/벽 아님 마스크 추론 |
 | `POST /api/v1/floorplans/analyze` | `{"image":"data:image/png;base64,..."}`를 U-Net으로 벽·문·창문 분할 |
 | `POST /api/v1/routes/compare` | 벽 마스크와 현관·목적지·가구 전후 위치로 경로 비교 |
+| `GET /api/v1/trajectory/status` | GRU 체크포인트 준비 여부 |
+| `POST /api/v1/trajectory/predict` | 최근 10개 정규화 좌표로 다음 9방향 중 하나 예측 |
 
 시뮬레이션 요청 예시:
 
@@ -47,6 +49,12 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 `POST /api/v1/chat`은 `{"message":"추천 배치 보여줘","state":{...}}` 형식입니다. `state`에서 빠진 필드는 시연 기본값으로 채웁니다. 응답의 `demo: true`와 `label: "시연용 데이터"`를 화면에 표시하세요. 시뮬레이션의 `room.variants.before/after`에는 프론트 캔버스 기준 좌표가 있고, `currentResult`에는 현재 배치 결과가 있습니다. `recommendedState`를 적용하면 다시 실행할 때 72cm 결과가 나옵니다.
 
 새 경로 API는 U-Net 출력의 128×128 `mask`(각 행이 `0`/`1` 문자열), `start`/`end` 좌표(이미지 크기에 대한 0~1 비율), `roomWidthCm`/`roomHeightCm`/`passageCm`, `furniture: {widthCm, depthCm, before:[x,y], after:[x,y]}`를 받습니다. 벽과 가구를 장애물로 놓고 필요한 통로 폭의 절반만큼 여유를 두어 경로를 탐색합니다. 결과의 `before`/`after`에 이동 가능 여부, 경로 좌표, 이동 거리, 대략적인 최소 통로 폭을 담습니다. 선택한 가구 한 개의 전후 배치를 비교합니다.
+
+`layoutItems` 배열을 추가로 보내면 각 항목의 `box: {x,y,width,height}`를 두 배치 모두의 고정 장애물로 반영합니다. 도면 위에서 드래그해 위치를 보정한 YOLO 가구를 전달하는 용도입니다. 경로 탐색은 격자 A*입니다. `frontend/floorplan.html`의 아이 동선은 이 A* 결과가 이동 가능할 때만 시작하고, GRU가 예측한 다음 방향을 매 칸 다시 요청합니다. GRU는 도착 경로를 보장하지 않습니다.
+
+GRU 체크포인트 `ai/checkpoints/child-trajectory-gru.pt`가 없으면 상태 API는 `ready:false`, 예측 API는 `503 TRAJECTORY_MODEL_NOT_READY`를 반환합니다. 저장소의 체크포인트는 공식 THÖR 성인 동선 TSV 4개로 학습했습니다. 학습·평가 명령은 `ai/trajectory/README.md`를 참고하세요. 아이 행동의 실제 안전성 검증으로 해석하면 안 됩니다.
+
+Windows에서 YOLO-World 가구 인식을 쓰려면 같은 `ai/.venv`에 `pip install -r ai/requirements.txt`를 실행하고, CLIP도 `pip install https://github.com/ultralytics/CLIP/archive/refs/heads/main.zip`로 설치해야 합니다. 모델 파일 `yolov8s-world.pt`는 저장소 루트에 둡니다. 첫 실행에서 CLIP 가중치를 내려받으므로 네트워크가 필요할 수 있습니다. YOLO 사진의 bbox를 도면 좌표로 자동 변환하지 않으며, 화면에서 방 중앙의 임시 가구 상자를 드래그해 위치를 보정합니다.
 
 U-Net 가중치는 `ai/checkpoints/walls-doors-windows.pt`에 있어야 합니다. 같은 이름의 JSON 모델 카드에
 `background, wall, door, window` 네 클래스와 출력 채널 4개가 확인되어야 준비 완료가 됩니다. 기존 `walls.pt`는 거절합니다.

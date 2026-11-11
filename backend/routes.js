@@ -118,21 +118,22 @@ function runRoute(blocked, width, height, start, end, dx, dy, passageCm) {
   const best = new Float64Array(blocked.length).fill(Infinity);
   const previous = new Int32Array(blocked.length).fill(-1);
   const heap = new MinHeap();
+  const heuristic = i => Math.hypot(((i % width) - (t % width)) * dx, (Math.floor(i / width) - Math.floor(t / width)) * dy);
   best[s] = 0;
-  heap.push(0, s);
+  heap.push(heuristic(s), s);
   while (heap.length) {
     const [cost, index] = heap.pop();
-    if (cost > best[index]) continue;
+    if (cost > best[index] + heuristic(index) + 1e-8) continue;
     if (index === t) break;
     const x = index % width, y = Math.floor(index / width);
     for (const [next, weight, sx, sy] of neighbors(index, width, height, dx, dy)) {
       if (distance[next] < radius) continue;
       if (sx && sy && (distance[y * width + x + sx] < radius || distance[(y + sy) * width + x] < radius)) continue;
-      const nextCost = cost + weight;
+      const nextCost = best[index] + weight;
       if (nextCost < best[next]) {
         best[next] = nextCost;
         previous[next] = index;
-        heap.push(nextCost, next);
+        heap.push(nextCost + heuristic(next), next);
       }
     }
   }
@@ -196,10 +197,26 @@ export function compareRoutes(input) {
   }
   const beforeBox = addFurniture(beforeBlocked, width, height, bounds, roomWidthCm, roomHeightCm, { widthCm, depthCm }, beforeCenter);
   const afterBox = addFurniture(afterBlocked, width, height, bounds, roomWidthCm, roomHeightCm, { widthCm, depthCm }, afterCenter);
+  const layoutItems = input.layoutItems ?? [];
+  if (!Array.isArray(layoutItems) || layoutItems.length > 30) throw new ApiError(400, 'INVALID_LAYOUT', '가구 목록은 최대 30개까지 입력할 수 있어요.');
+  for (const item of layoutItems) {
+    const box = item?.box;
+    if (!box) throw new ApiError(400, 'INVALID_LAYOUT', '가구 위치가 필요합니다.');
+    const x = number(box.x, '가구 x', 0, 1), y = number(box.y, '가구 y', 0, 1);
+    const w = number(box.width, '가구 폭 비율', 0.001, 1), h = number(box.height, '가구 깊이 비율', 0.001, 1);
+    if (x + w > 1 || y + h > 1) throw new ApiError(400, 'INVALID_LAYOUT', '가구가 도면 밖에 있어요.');
+    number(item.widthCm, '가구 가로', 10, 1000);
+    number(item.depthCm, '가구 깊이', 10, 1000);
+    for (let gy = Math.floor(y * height); gy <= Math.ceil((y + h) * height) && gy < height; gy++)
+      for (let gx = Math.floor(x * width); gx <= Math.ceil((x + w) * width) && gx < width; gx++) {
+        beforeBlocked[gy * width + gx] = 1;
+        afterBlocked[gy * width + gx] = 1;
+      }
+  }
   const before = runRoute(beforeBlocked, width, height, start, end, dx, dy, passageCm);
   const after = runRoute(afterBlocked, width, height, start, end, dx, dy, passageCm);
   return {
-    modelBased: true, routeMethod: '격자 Dijkstra', grid: { width, height },
+    modelBased: true, routeMethod: '격자 A*', grid: { width, height },
     bounds: { x: bounds.minX / width, y: bounds.minY / height,
       width: (bounds.maxX - bounds.minX + 1) / width, height: (bounds.maxY - bounds.minY + 1) / height },
     roomWidthCm, roomHeightCm, passageCm, start, end,

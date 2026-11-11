@@ -81,3 +81,12 @@ test('앱을 열면 첫 화면의 소개와 가구 찾기 버튼을 렌더링한
   assert.match(nodes.get('#headline').innerHTML, /가구를 들이기 전,<br>생활을 먼저 그려보세요/);
   assert.equal(nodes.get('.shell').dataset.intro, true);
 });
+
+test('도면 화면의 아이 동선 코드가 파싱되고 모델 API와 배치 가구를 연결한다', () => {
+  const html = readFileSync(new URL('../../frontend/floorplan.html', import.meta.url), 'utf8');
+  assert.doesNotThrow(() => new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]));
+  assert.match(html, /아이 동선 시뮬레이션 시작/);
+  assert.match(html, /\/api\/v1\/trajectory\/predict/);
+  assert.match(html, /state\.layoutItems=data\.items\.map/);
+  assert.match(html, /layoutItems:state\.layoutItems/);
+});
