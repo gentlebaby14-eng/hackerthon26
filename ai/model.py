@@ -18,7 +18,7 @@ class DoubleConv(nn.Sequential):
 
 
 class UNet(nn.Module):
-    def __init__(self, base_channels=16):
+    def __init__(self, base_channels=16, out_channels=1):
         super().__init__()
         c = base_channels
         self.enc1 = DoubleConv(3, c)
@@ -31,7 +31,7 @@ class UNet(nn.Module):
         self.dec3 = DoubleConv(12 * c, 4 * c)
         self.dec2 = DoubleConv(6 * c, 2 * c)
         self.dec1 = DoubleConv(3 * c, c)
-        self.head = nn.Conv2d(c, 1, 1)
+        self.head = nn.Conv2d(c, out_channels, 1)
 
     @staticmethod
     def _up(x, skip):

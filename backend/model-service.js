@@ -7,20 +7,24 @@ import { fileURLToPath } from 'node:url';
 import { ApiError } from './logic.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const checkpoint = path.resolve(process.env.MODEL_CHECKPOINT ?? path.join(root, 'ai', 'checkpoints', 'walls.pt'));
-const script = path.join(root, 'ai', 'infer.py');
+const checkpoint = path.resolve(process.env.STRUCTURE_MODEL_CHECKPOINT ?? path.join(root, 'ai', 'checkpoints', 'walls-doors-windows.pt'));
+const script = path.join(root, 'ai', 'infer_structures.py');
 const projectPython = path.join(root, 'ai', '.venv', 'bin', 'python');
 const modelCardPath = checkpoint.replace(/\.pt$/, '.json');
-const evaluationPath = path.join(root, 'ai', 'checkpoints', 'evaluation.json');
+const evaluationPath = path.join(root, 'ai', 'checkpoints', 'walls-doors-windows-evaluation.json');
 
 function readJsonFile(filename) {
   try { return JSON.parse(readFileSync(filename, 'utf8')); } catch { return null; }
 }
 
 export function modelStatus() {
-  const ready = existsSync(checkpoint);
-  return { ready, model: 'U-Net', modelCard: readJsonFile(modelCardPath), evaluation: readJsonFile(evaluationPath),
-    message: ready ? '학습·검증된 벽 분할 모델을 사용할 수 있어요.' : '학습된 가중치가 없어요. ai/README.md의 학습 절차를 진행해 주세요.' };
+  const modelCard = readJsonFile(modelCardPath);
+  const compatible = modelCard?.classes?.join(',') === 'background,wall,door,window' && modelCard?.out_channels === 4;
+  const ready = existsSync(checkpoint) && compatible;
+  return { ready, model: 'U-Net multi-class segmentation', classes: ['background', 'wall', 'door', 'window'],
+    modelCard, evaluation: readJsonFile(evaluationPath),
+    message: ready ? '벽·문·창문 인식 모델을 사용할 수 있어요.'
+      : '세 종류 인식 모델이 준비되지 않았어요. 기존 벽 전용 가중치는 사용할 수 없습니다.' };
 }
 
 export async function analyzeFloorplan(imageDataUrl) {
@@ -48,9 +52,11 @@ export async function analyzeFloorplan(imageDataUrl) {
         try { resolve(JSON.parse(stdout)); } catch { reject(new Error('추론 결과를 읽을 수 없습니다.')); }
       });
     });
-    return { ...result, modelBased: true, note: '학습된 U-Net이 예측한 벽입니다. 결과를 육안으로 확인해 주세요.' };
+    const mask = result.labels.map(row => [...row].map(value => value === '1' || value === '3' ? '1' : '0').join(''));
+    return { ...result, mask, modelBased: true,
+      note: 'U-Net이 벽·문·창문을 각각 예측했습니다. 문은 개구부, 벽과 창문은 통행 불가로 계산합니다.' };
   } catch (error) {
-    throw new ApiError(502, 'INFERENCE_FAILED', `벽 추론에 실패했어요: ${error.message}`);
+    throw new ApiError(502, 'INFERENCE_FAILED', `벽·문·창문 추론에 실패했어요: ${error.message}`);
   } finally {
     await rm(folder, { recursive: true, force: true });
   }

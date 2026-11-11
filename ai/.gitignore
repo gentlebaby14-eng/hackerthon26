@@ -2,6 +2,9 @@ checkpoints/*
 !checkpoints/walls.pt
 !checkpoints/walls.json
 !checkpoints/evaluation.json
+!checkpoints/walls-doors-windows.pt
+!checkpoints/walls-doors-windows.json
+!checkpoints/walls-doors-windows-evaluation.json
 data/
 .venv/
 __pycache__/

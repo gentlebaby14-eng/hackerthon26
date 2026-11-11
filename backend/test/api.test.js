@@ -77,9 +77,11 @@ test('잘못된 숫자 입력을 거절한다', async () => {
   assert.equal(data.error.code, 'INVALID_INPUT');
 });
 
-test('학습 가중치가 없으면 AI 분석을 했다고 응답하지 않는다', async () => {
+test('4-class 가중치가 없으면 기존 벽 모델로 분석한 척하지 않는다', async () => {
   const model = await request('/api/v1/model/status');
+  assert.deepEqual(model.data.classes, ['background', 'wall', 'door', 'window']);
   if (model.data.ready) return;
+  assert.match(model.data.message, /세 종류 인식 모델/);
   const { status, data } = await request('/api/v1/floorplans/analyze', 'POST', { image: 'data:image/png;base64,AAAA' });
   assert.equal(status, 503);
   assert.equal(data.error.code, 'MODEL_NOT_READY');

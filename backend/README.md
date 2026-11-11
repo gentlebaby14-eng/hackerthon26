@@ -24,8 +24,8 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `GET /api/v1/products/oak` | 상품 상세 |
 | `POST /api/v1/simulations` | 현재·추천 배치의 경로, 위험 구간, 최소 통로 폭 비교 |
 | `POST /api/v1/chat` | 키워드별 고정 상담 답변 |
-| `GET /api/v1/model/status` | U-Net 학습 가중치 준비 상태 |
-| `POST /api/v1/floorplans/analyze` | `{"image":"data:image/png;base64,..."}`를 U-Net으로 벽 분할 |
+| `GET /api/v1/model/status` | 벽·문·창문 4-class U-Net 가중치·클래스 호환 상태 |
+| `POST /api/v1/floorplans/analyze` | `{"image":"data:image/png;base64,..."}`를 U-Net으로 벽·문·창문 분할 |
 | `POST /api/v1/routes/compare` | 벽 마스크와 현관·목적지·가구 전후 위치로 경로 비교 |
 
 시뮬레이션 요청 예시:
@@ -45,7 +45,10 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 
 새 경로 API는 U-Net 출력의 128×128 `mask`(각 행이 `0`/`1` 문자열), `start`/`end` 좌표(이미지 크기에 대한 0~1 비율), `roomWidthCm`/`roomHeightCm`/`passageCm`, `furniture: {widthCm, depthCm, before:[x,y], after:[x,y]}`를 받습니다. 벽과 가구를 장애물로 놓고 필요한 통로 폭의 절반만큼 여유를 두어 경로를 탐색합니다. 결과의 `before`/`after`에 이동 가능 여부, 경로 좌표, 이동 거리, 대략적인 최소 통로 폭을 담습니다. 선택한 가구 한 개의 전후 배치를 비교합니다.
 
-U-Net 가중치는 `ai/checkpoints/walls.pt`에 있어야 합니다. 별도 가상환경을 쓴다면 서버 시작 전 `PYTHON` 환경 변수에 해당 Python 실행 파일을 지정하세요. 가중치가 없으면 분석 API는 `503 MODEL_NOT_READY`를 반환합니다. 공식 정답 마스크를 통한 화면 체험은 학습 없이 가능합니다.
+U-Net 가중치는 `ai/checkpoints/walls-doors-windows.pt`에 있어야 합니다. 같은 이름의 JSON 모델 카드에
+`background, wall, door, window` 네 클래스와 출력 채널 4개가 확인되어야 준비 완료가 됩니다. 기존 `walls.pt`는 거절합니다.
+별도 가상환경을 쓴다면 서버 시작 전 `PYTHON` 환경 변수에 Python 실행 파일을 지정하세요. 가중치가 없으면
+분석 API는 `503 MODEL_NOT_READY`를 반환합니다. 공식 벽 정답 마스크 화면 체험은 학습 없이 가능하며 AI 예측으로 표시하지 않습니다.
 
 기존 55cm·72cm 시연 API는 그대로 유지하며 실제 경로 계산 결과와 혼동하지 않도록 `demo: true`를 반환합니다. 주소 크롤링, 상품 웹 검색, 3D 시뮬레이션, 사용자 데이터 저장은 아직 구현하지 않았습니다.
 
