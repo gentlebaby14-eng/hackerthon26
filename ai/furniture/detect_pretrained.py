@@ -11,5 +11,5 @@ def main():
     for box in result.boxes:
         cid=int(box.cls[0]); x1,y1,x2,y2=box.xyxy[0].tolist()
         items.append({"type": result.names[cid], "confidence": round(float(box.conf[0]),3), "bbox": {"x":round(x1),"y":round(y1),"width":round(x2-x1),"height":round(y2-y1)}, "needsSizeConfirm": True})
-    print(json.dumps({"mode":"pretrained","model":"YOLO-World","items":items}, ensure_ascii=False))
+    print(json.dumps({"mode":"pretrained","model":"YOLO-World","imageWidth":int(result.orig_shape[1]),"imageHeight":int(result.orig_shape[0]),"items":items}, ensure_ascii=False))
 if __name__ == "__main__": main()

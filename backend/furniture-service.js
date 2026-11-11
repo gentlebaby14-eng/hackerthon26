@@ -26,7 +26,7 @@ export async function detectFurniture(image) {
       const timer=setTimeout(()=>child.kill(),120000); child.stdout.on('data',c=>out+=c); child.stderr.on('data',c=>err+=c.toString().slice(-3000));
       child.on('error',reject); child.on('close',code=>{clearTimeout(timer); if(code) reject(new Error(err || `detector exited ${code}`)); else {try{resolve(JSON.parse(out))}catch{reject(new Error('가구 인식 결과를 읽을 수 없습니다.'))}}});
     });
-    return {...output, autoPlace: true, note: '인식된 가구를 평면도 중앙에 임시 배치했습니다. 실제 크기는 확인해 주세요.'};
+    return {...output, autoPlace: true, note: '사진 속 좌표를 반환했습니다. 방문 방향으로 추정한 위치와 실제 치수를 확인해 주세요.'};
   } catch (error) { throw new ApiError(502, 'FURNITURE_INFERENCE_FAILED', `가구 인식에 실패했어요: ${error.message}`); }
   finally { await rm(folder,{recursive:true,force:true}); }
 }
