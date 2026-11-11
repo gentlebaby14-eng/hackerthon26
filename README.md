@@ -23,6 +23,7 @@ Node.js 20 이상에서 `backend` 폴더의 `npm start`를 실행하고 http://1
 
 ## 시연 범위
 
+- 실제 판매 상품을 찾기 위한 Gemini 프롬프트와 응답 형식은 [backend/prompts/gemini-product-recommendation.md](backend/prompts/gemini-product-recommendation.md)에 정리했습니다. 실시간 검색은 아직 연결되지 않았습니다.
 - 상품·가격·가구 일러스트는 예시이며 실시간 검색은 연결 전입니다. 판매 사이트 검색 링크를 제공합니다.
 - 업로드 사진은 브라우저에서 색감을 추출해 예시 후보 순서에 반영합니다. 실제 방 구조·치수는 자동 복원하지 않습니다.
 - 생활 패턴과 활동성을 수정할 수 있습니다. 활동적일수록 예시 이동 경로와 탐색 범위가 커집니다.
