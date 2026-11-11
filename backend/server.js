@@ -63,6 +63,11 @@ export function createApp() {
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
         return res.end(png);
       }
+      if (req.method === 'GET' && /^\/assets\/products\/(?:bed-(?:q1|q2|k1)|toy-[1-3]|mat-[1-3])\.webp$/.test(url.pathname)) {
+        const image = await readFile(path.join(frontendDir, 'assets', 'products', path.basename(url.pathname)));
+        res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=3600' });
+        return res.end(image);
+      }
       if (req.method === 'GET' && ['/sample/floorplan.png', '/sample/wall-mask.png'].includes(url.pathname)) {
         const filename = url.pathname === '/sample/floorplan.png' ? 'floorplan-crop.png' : 'wall-mask-crop.png';
         const png = await readFile(path.join(sampleDir, filename));

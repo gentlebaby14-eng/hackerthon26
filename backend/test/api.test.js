@@ -135,3 +135,12 @@ test('사용자가 제공한 두 평면도 이미지를 화면에 제공한다',
     assert.ok((await response.arrayBuffer()).byteLength > 1000);
   }
 });
+
+test('저장된 상품 사진을 서버에서도 제공한다', async () => {
+  for (const asset of ['bed-q1', 'bed-q2', 'bed-k1', 'toy-1', 'toy-2', 'toy-3', 'mat-1', 'mat-2', 'mat-3']) {
+    const response = await fetch(base + `/assets/products/${asset}.webp`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/webp');
+    assert.ok((await response.arrayBuffer()).byteLength > 1000);
+  }
+});
