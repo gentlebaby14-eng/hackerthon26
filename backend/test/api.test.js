@@ -25,6 +25,16 @@ async function request(path, method = 'GET', body) {
   return { status: res.status, data: await res.json() };
 }
 
+test('기본 침실·아기방 사진과 평면도를 서버에서 제공한다', async () => {
+  for (const name of ['demo-bedroom-plan.png', 'demo-bedroom-photo.png',
+    'demo-baby-plan.png', 'demo-baby-photo.png']) {
+    const response = await fetch(base + '/assets/' + name);
+    assert.equal(response.status, 200, name);
+    assert.match(response.headers.get('content-type'), /image\/png/);
+    assert.ok((await response.arrayBuffer()).byteLength > 1000);
+  }
+});
+
 test('프론트 3 기본 조건으로 두 상품을 찾는다', async () => {
   const { status, data } = await request('/api/v1/products?kind=수납장&style=원목&budget=20&maxWidth=80');
   assert.equal(status, 200);
@@ -74,11 +84,9 @@ test('지원하지 않는 조건은 분석한 척하지 않고 시연 복귀값�
   assert.equal(data.error.resetDemo.product, 'oak');
 });
 
-test('챗봇은 미리 정해진 추천 응답과 열기 동작을 준다', async () => {
-  const { status, data } = await request('/api/v1/chat', 'POST', { message: '추천 배치 보여줘', state: defaultState });
-  assert.equal(status, 200);
-  assert.equal(data.showLayout, true);
-  assert.match(data.answer, /55cm에서 72cm/);
+test('제거한 상담 API는 더 이상 응답하지 않는다', async () => {
+  const { status } = await request('/api/v1/chat', 'POST', { message: '추천 배치 보여줘' });
+  assert.equal(status, 404);
 });
 
 test('잘못된 숫자 입력을 거절한다', async () => {

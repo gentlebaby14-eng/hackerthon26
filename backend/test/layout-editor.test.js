@@ -19,11 +19,14 @@ test('침대 도형은 방 실측 비율로 표시하고 축마다 같은 축척
   assert.ok(Math.abs(run('footprint({w:150,d:200}).w')-150/330)<1e-9);
   assert.ok(Math.abs(run('editorRect().w/330-editorRect().h/270'))<1e-9);
 });
-test('모서리 드래그는 반대편 모서리를 유지하고 cm 크기를 줄인다',()=>{
+test('상담·시연 표시와 크기 편집·AI 배치 추천은 화면에 없다',()=>{
+  const html=readFileSync(new URL('../../frontend/index.html',import.meta.url),'utf8');
+  assert.doesNotMatch(html, /id="chat"|id="chat-open"|class="demo"/);
   const {run}=editor();
-  run('draft.items=[{id:"bed",name:"침대",w:150,d:200,x:.5,y:.5}];draft.active="bed";const anchor=resizeHandles(selectedItem())[0];resizeLayoutItem(selectedItem(),anchor,[anchor[0]+100/330,anchor[1]+160/270]);');
-  assert.equal(run('selectedItem().w'),100);assert.equal(run('selectedItem().d'),160);
-  assert.ok(Math.abs(run('resizeHandles(selectedItem())[0][0]-anchor[0]'))<1e-9);
+  run("draft.page=4;draft.items=[{id:'bed',name:'침대',w:150,d:200,x:.5,y:.5}];draft.active='bed'");
+  const controls=run('flowControls()');
+  assert.doesNotMatch(controls,/치수 직접 입력|방 크기 기준|AI 배치 추천|data-size|모서리의 흰색 점/);
+  assert.match(controls,/가구 90° 회전|가구 삭제/);
 });
 test('배치 페이지에서 사진 업데이트 시 YOLO가 자동 실행되고 기존 수동 가구는 보존된다',async()=>{
   const e=editor();e.run("draft.items=[{id:'old',source:'yolo'},{id:'keep',source:'manual',w:40,d:40,x:.2,y:.2}]");
@@ -82,17 +85,6 @@ test('연령과 활동성에 따라 아기·어린이·성인 걸음이 확실�
   assert.ok(run('walkerProfile().speed')<1);
 });
 
-test('AI 배치 추천은 새 가구를 방·가구·문 개폐 공간과 겹치지 않게 배치한다',()=>{
-  const {run}=editor();
-  run("draft.doorSide='bottom';draft.items=[{id:'old',name:'침대',w:80,d:120,x:.25,y:.35,source:'yolo'},{id:'new',name:'수납장',w:60,d:40,x:.55,y:.55,source:'manual'}];draft.active='new'");
-  assert.equal(run('optimizeFurnitureLayout()'),true);
-  assert.equal(run('draft.optimization.targetId'),'new');
-  assert.equal(run('itemFits(selectedItem())'),true);
-  assert.equal(run("overlaps(selectedItem(),draft.items.find(item=>item.id==='old'))"),false);
-  assert.equal(run('intersectsDoorSwing(selectedItem())'),false);
-  assert.ok(run('draft.optimization.recommended.route.path.length')>1);
-});
-
 test('시뮬레이션 진입 시 방문 쪽 출발점과 안전한 목적지 경로를 자동 준비한다',()=>{
   const {run}=editor();
   run("draft.items=[];draft.doorSide='bottom';state.passage='20'");
@@ -119,6 +111,39 @@ test('조건 화면에 추가할 가구 해당없음과 기존·변경 배치 �
   assert.match(controls,/재생 속도/);assert.match(controls,/▶ 재생/);
   assert.match(controls,/이전/);assert.match(controls,/가구 배치로 돌아가기/);
   assert.doesNotMatch(controls,/반복 횟수|무작위 시드|기존 배치|변경 배치|히트맵|좁은 통로|모서리 보호대|일시정지|다시보기/);
+});
+
+test('업로드 없이 다음을 누르면 방 유형에 맞는 평면도와 방 사진을 준비한다',async()=>{
+  for(const [room,plan,photo] of [
+    ['침실','방 평면도.png','내 방 사진.png'],
+    ['아기방','아기방 평면도.png','아기방 사진.png']
+  ]){
+    const e=editor(),requested=[];
+    e.context.fetch=async url=>{requested.push(url);return {ok:true,blob:async()=>({})};};
+    e.context.File=class{constructor(parts,name,options){this.name=name;this.type=options.type;}};
+    e.run("fileData=async()=> 'data:image/png;base64,TEST';loadRoomPhoto=async(data,name)=>{state.floorplanImage={naturalWidth:100,naturalHeight:100};state.photo={name}};flowGo=page=>{draft.page=page}");
+    e.run(`state.roomUse='${room}';state.floorplanImage=null;draft.page=1`);
+    assert.doesNotMatch(e.run('flowControls()'),/data-flow="to-room" disabled/);
+    await e.run('goToRoomWithDefaults()');
+    assert.equal(e.run('draft.error'),'',e.run('draft.error'));
+    assert.equal(e.run('draft.page'),2);
+    assert.equal(e.run('state.photo.name'),plan);
+    assert.equal(e.run('draft.photo.name'),photo);
+    assert.equal(e.run('draft.autoRoom'),true);
+    assert.ok(e.run('roomBounds()'));
+    assert.equal(requested.length,2);
+  }
+});
+
+test('기본 도면은 방을 자동 선택하고 가구 찾기에서는 첫 가구를 자동 선택한다',async()=>{
+  const e=editor();
+  e.context.fetch=async()=>({ok:true,json:async()=>({labels:Array(100).fill('0'.repeat(100)),mask:null})});
+  e.run("state.photo={name:'방 평면도.png'};state.floorplanData='data:image/png;base64,TEST';draft.autoRoom=true;draft.page=2");
+  await e.run('analyzeWalls()');
+  assert.ok(e.run('roomBounds()'));
+  assert.equal(e.run('draft.doorSide'),'top');
+  e.run('flowGo(3)');
+  assert.equal(e.run('draft.picks.length'),1);
 });
 
 test('고정 시연 도면은 지정한 방과 방문 방향을 모델 결과와 무관하게 선택한다',()=>{
@@ -217,13 +242,69 @@ test('무작위 생활 동선은 같은 시드에서 같은 목적지 순서를 
   assert.notEqual(run('JSON.stringify(seqA)'),run('JSON.stringify(seqC)'));
 });
 
+test('기본 통로 폭이 65cm여도 가구 주변의 실제 보행 경로를 재생할 수 있다',()=>{
+  const {run}=editor();
+  run("state.width='2760';state.height='3230';state.passage='65';draft.doorSide='top';const items=[{id:'bed',name:'침대',x:.8,y:.5,w:110,d:200},{id:'chair',name:'의자',x:.36,y:.5,w:45,d:45},{id:'desk',name:'책상',x:.36,y:.85,w:100,d:55},{id:'cabinet',name:'수납장',x:.12,y:.48,w:40,d:75}];const result=simulateLifePaths(items,generateLifeSequences(items.map(i=>i.id),20,24),24)");
+  assert.ok(run('result.paths.some(path=>path.length>2)'));
+  assert.equal(run('result.paths.every(path=>path.every(([x,y])=>roomCell(x,y)&&items.every(item=>Math.hypot(Math.max(0,Math.abs(x-item.x)*roomWidth()-item.w/2),Math.max(0,Math.abs(y-item.y)*roomDepth()-item.d/2))>10)))'),true);
+});
+
+test('재생 동선은 여러 가구를 반복 방문하고 같은 시드는 같은 긴 경로를 만든다',()=>{
+  const {run}=editor();
+  run("state.width='2760';state.height='3230';state.passage='65';draft.doorSide='top';const items=[{id:'bed',name:'침대',x:.8,y:.5,w:110,d:200},{id:'chair',name:'의자',x:.36,y:.5,w:45,d:45},{id:'desk',name:'책상',x:.36,y:.85,w:100,d:55},{id:'cabinet',name:'수납장',x:.12,y:.48,w:40,d:75}];const tour=buildWalkingTour(items,24);const same=buildWalkingTour(items,24);const different=buildWalkingTour(items,25)");
+  assert.ok(run('tour.visits')>=12);
+  assert.ok(run('tour.path.length')>40);
+  assert.equal(run('tour.labels.slice(0,6).join(">")'),'문>침대>수납장>책상>수납장>문');
+  assert.ok(run('new Set(tour.labels).size')>=5);
+  assert.ok(run("tour.labels.some(label=>label.includes('모서리'))"));
+  assert.equal(run('JSON.stringify(tour.path)'),run('JSON.stringify(same.path)'));
+  assert.notEqual(run('JSON.stringify(tour.labels)'),run('JSON.stringify(different.labels)'));
+  assert.equal(run('tour.path.every(([x,y])=>roomCell(x,y)&&items.every(item=>Math.hypot(Math.max(0,Math.abs(x-item.x)*roomWidth()-item.w/2),Math.max(0,Math.abs(y-item.y)*roomDepth()-item.d/2))>10))'),true);
+});
+
 test('반복 A* 결과의 히트맵과 모서리 접근 값은 계산된 경로에서만 누적된다',()=>{
   const {run}=editor();
   run("state.roomUse='아기방';state.age='18';draft.doorSide='bottom';const babyItems=[{id:'cab',name:'장난감 수납장',w:50,d:40,x:.3,y:.3,source:'yolo'},{id:'desk',name:'책상',w:80,d:45,x:.7,y:.35,source:'yolo'}];const seq=generateLifeSequences(['cab','desk'],8,22);const sim=simulateLifePaths(babyItems,seq,22)");
   assert.equal(run('sim.runs'),8);
   assert.equal(run('sim.heat.reduce((a,b)=>a+b,0)'),run('sim.paths.flat().length'));
   assert.ok(run('sim.success+sim.failures')===8);
-  assert.equal(run('sim.corners.every(c=>c.count>0&&Number.isFinite(c.min))'),true);
+  assert.equal(run('sim.corners.length'),8);
+  assert.equal(run('sim.corners.every(c=>Number.isFinite(c.min))'),true);
+});
+
+test('성인 침실은 실제 A*로 통과 가능할 때 경고하지 않고 통로를 막으면 경고한다',()=>{
+  const {run}=editor();
+  run("state.roomUse='침실';state.age='32';state.passage='65';state.photo={name:'방 평면도.png'};state.floorplanImage={naturalWidth:1007,naturalHeight:758};state.structure.labels=Array(100).fill('0'.repeat(100));applyKnownDemoRoom();const normal=[{id:'bed',name:'침대',x:.17,y:.7,w:80,d:100},{id:'desk',name:'책상',x:.55,y:.75,w:80,d:50},{id:'cab',name:'수납장',x:.2,y:.2,w:45,d:40}];const safeResult=analyzeAdultAccess(normal);const blockedResult=analyzeAdultAccess([...normal,{id:'barrier',name:'추가 수납장',x:.5,y:.45,w:240,d:40}])");
+  assert.equal(run('safeResult.blocked'),false);
+  run('draft.analysis=safeResult');
+  assert.equal(run('analysisPanel()'),'');
+  assert.equal(run('blockedResult.blocked'),true);
+  assert.equal(run('blockedResult.blockingItemId'),'barrier',run('JSON.stringify({reason:blockedResult.reason,message:blockedResult.message,targetId:blockedResult.targetId,partialLength:blockedResult.partialPath.length})'));
+  assert.match(run('blockedResult.message'),/방문|침대|책상|통로/);
+  run('draft.analysis=blockedResult');
+  assert.match(run('analysisPanel()'),/이동 경로가 차단되었습니다/);
+  assert.ok(run('blockedResult.partialPath.length')>=1);
+  assert.equal(run("blockedResult.partialPath.every(([x,y])=>roomCell(x,y))"),true);
+  assert.equal(run("blockedResult.partialPath.every(([x,y])=>[...normal,{id:'barrier',name:'추가 수납장',x:.5,y:.45,w:240,d:40}].every(item=>{const size=footprint(item);return Math.abs(x-item.x)>size.w/2||Math.abs(y-item.y)>size.d/2}))"),true);
+  run("const chairOnly=[{id:'chair',name:'의자',x:.5,y:.45,w:240,d:40}];const chairResult=analyzeAdultAccess(chairOnly)");
+  assert.equal(run('chairResult.blocked'),false);
+});
+
+test('18개월 아기방은 계산된 경로 근처의 노출 모서리만 표시한다',()=>{
+  const {run}=editor();
+  run("state.roomUse='아기방';state.age='18';state.photo={name:'아기방 평면도.png'};state.floorplanImage={naturalWidth:498,naturalHeight:435};state.structure.labels=Array(100).fill('0'.repeat(100));applyKnownDemoRoom();const items=[{id:'toy',name:'장난감 수납장',w:50,d:40,x:.27,y:.3},{id:'mat',name:'놀이매트',w:80,d:60,x:.7,y:.7}];const sim=simulateLifePaths(items,generateLifeSequences(items.map(i=>i.id),20,22),22);const corners=analyzeCorners(items,sim.paths);draft.analysis={mode:'baby',corners};layoutMotion.progress=1");
+  assert.ok(run('corners.length')>0);
+  assert.equal(run('corners.length'),4);
+  assert.equal(run('corners.every(c=>Number.isFinite(c.min)&&c.itemId==="toy")'),true);
+  assert.ok(run('corners.some(c=>c.count>0)'));
+  run("const wallToy=[{id:'toy',name:'장난감 수납장',w:50,d:40,x:.08,y:.3}];const wallCorners=analyzeCorners(wallToy,sim.paths)");
+  assert.ok(run('wallCorners.length')<4);
+  assert.match(run('analysisPanel()'),/모서리 보호대 설치를 검토하세요/);
+  run('state.roomUse="침실"');
+  assert.equal(run('analyzeCorners(items,sim.paths).length'),0);
+  run("state.age='1';draft.analysis={mode:'baby',corners};layoutMotion.progress=0");
+  assert.equal(run('isBabyMode()'),true);
+  assert.match(run('analysisPanel()'),/모서리 보호대 설치를 검토하세요/);
 });
 
 test('가구가 통로를 막으면 벽을 통과하지 않고 접근 가능한 위치에서 멈춘다',()=>{

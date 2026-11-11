@@ -62,7 +62,7 @@ test('저장된 실제 상품의 사진·가격·판매처 링크를 기존 카�
   assert.match(html, /<img src="assets\/products\/bed-q1.webp"/);
   assert.match(html, /298,000원/);
   assert.match(html, /href="https:\/\/brand.naver.com\/lemerebed\/products\/4221928734"/);
-  assert.match(html, /시연용 데이터 · 판매처 정보 저장본/);
+  assert.match(html, /저장된 상품 · 판매처 정보/);
   assert.doesNotMatch(html, /더 찾아보기/);
   assert.doesNotMatch(readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8'), /fetch\([^\n]*\/api\/v1\/products\/recommend/);
 });

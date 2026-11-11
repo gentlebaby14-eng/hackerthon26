@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defaultState, plan, products } from './data.js';
-import { ApiError, chat, searchProducts, simulate } from './logic.js';
+import { ApiError, searchProducts, simulate } from './logic.js';
 import { compareRoutes } from './routes.js';
 import { analyzeFloorplan, analyzeWalls, modelStatus, wallModelStatus } from './model-service.js';
 import { detectFurniture, furnitureStatus } from './furniture-service.js';
@@ -64,7 +64,9 @@ export function createApp() {
         res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(css);
       }
-      if (req.method === 'GET' && ['/assets/baby-floorplan.png', '/assets/bedroom-floorplan.png'].includes(url.pathname)) {
+      if (req.method === 'GET' && ['/assets/baby-floorplan.png', '/assets/bedroom-floorplan.png',
+        '/assets/demo-bedroom-plan.png', '/assets/demo-bedroom-photo.png',
+        '/assets/demo-baby-plan.png', '/assets/demo-baby-photo.png'].includes(url.pathname)) {
         const filename = path.basename(url.pathname);
         const png = await readFile(path.join(frontendDir, 'assets', filename));
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
@@ -122,10 +124,6 @@ export function createApp() {
       if (req.method === 'POST' && url.pathname === '/api/v1/simulations') {
         const body = await readJson(req);
         return json(res, 200, simulate(body.state ?? body));
-      }
-      if (req.method === 'POST' && url.pathname === '/api/v1/chat') {
-        const body = await readJson(req);
-        return json(res, 200, chat(body.message, body.state ?? {}));
       }
       if (req.method === 'POST' && url.pathname === '/api/v1/floorplans/analyze') {
         const body = await readJson(req, 12 * 1024 * 1024);

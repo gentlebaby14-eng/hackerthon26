@@ -24,7 +24,6 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `POST /api/v1/products/recommend` | 일시 중단: `503 PRODUCT_API_PAUSED` 반환, 외부 호출 없음 |
 | `GET /api/v1/products/oak` | 상품 상세 |
 | `POST /api/v1/simulations` | 현재·추천 배치의 경로, 위험 구간, 최소 통로 폭 비교 |
-| `POST /api/v1/chat` | 키워드별 고정 상담 답변 |
 | `GET /api/v1/model/status` | 벽·문·창문 4-class U-Net 가중치·클래스 호환 상태 |
 | `GET /api/v1/walls/status` | 벽 전용 U-Net 가중치 상태 |
 | `GET /api/v1/furniture/status` | YOLO-World 가중치 포함 여부 확인 |
@@ -45,7 +44,7 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 }
 ```
 
-`POST /api/v1/chat`은 `{"message":"추천 배치 보여줘","state":{...}}` 형식입니다. `state`에서 빠진 필드는 시연 기본값으로 채웁니다. 응답의 `demo: true`와 `label: "시연용 데이터"`를 화면에 표시하세요. 시뮬레이션의 `room.variants.before/after`에는 프론트 캔버스 기준 좌표가 있고, `currentResult`에는 현재 배치 결과가 있습니다. `recommendedState`를 적용하면 다시 실행할 때 72cm 결과가 나옵니다.
+시뮬레이션의 `room.variants.before/after`에는 프론트 캔버스 기준 좌표가 있고, `currentResult`에는 현재 배치 결과가 있습니다. `recommendedState`를 적용하면 다시 실행할 때 72cm 결과가 나옵니다.
 
 새 경로 API는 U-Net 출력의 128×128 `mask`(각 행이 `0`/`1` 문자열), `start`/`end` 좌표(이미지 크기에 대한 0~1 비율), `roomWidthCm`/`roomHeightCm`/`passageCm`, `furniture: {widthCm, depthCm, before:[x,y], after:[x,y]}`를 받습니다. 벽과 가구를 장애물로 놓고 필요한 통로 폭의 절반만큼 여유를 두어 경로를 탐색합니다. 결과의 `before`/`after`에 이동 가능 여부, 경로 좌표, 이동 거리, 대략적인 최소 통로 폭을 담습니다. 선택한 가구 한 개의 전후 배치를 비교합니다.
 
