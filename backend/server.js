@@ -56,6 +56,12 @@ export function createApp() {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(html);
       }
+      if (req.method === 'GET' && ['/assets/baby-floorplan.png', '/assets/bedroom-floorplan.png'].includes(url.pathname)) {
+        const filename = path.basename(url.pathname);
+        const png = await readFile(path.join(frontendDir, 'assets', filename));
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+        return res.end(png);
+      }
       if (req.method === 'GET' && ['/sample/floorplan.png', '/sample/wall-mask.png'].includes(url.pathname)) {
         const filename = url.pathname === '/sample/floorplan.png' ? 'floorplan-crop.png' : 'wall-mask-crop.png';
         const png = await readFile(path.join(sampleDir, filename));

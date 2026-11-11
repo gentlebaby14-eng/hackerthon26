@@ -19,6 +19,8 @@ test('두 시나리오와 추천 상품 묶음을 제공한다', () => {
   assert.equal(run("scenarioProducts.baby.filter(p => p.group === '장난감 수납장').length"), 3);
   assert.equal(run("scenarioProducts.baby.filter(p => p.group === '놀이매트').length"), 3);
   assert.equal(run('presets.baby.age'), 1.5);
+  assert.equal(run("scenarioProducts.bedroom.filter(p => p.url.startsWith('https://')).length"), 3);
+  assert.equal(run("scenarioProducts.baby.filter(p => p.group === '장난감 수납장' && p.url.startsWith('https://')).length"), 2);
 });
 
 test('성인 방은 큰 침대의 기존 배치에서 멈추고 추천 배치에서는 이동을 완료한다', () => {

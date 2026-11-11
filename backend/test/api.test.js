@@ -114,3 +114,12 @@ test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () =>
     assert.match(await response.text(), page === '/' ? /<title>루마이/ : /Roommate/i);
   }
 });
+
+test('사용자가 제공한 두 평면도 이미지를 화면에 제공한다', async () => {
+  for (const asset of ['/assets/baby-floorplan.png', '/assets/bedroom-floorplan.png']) {
+    const response = await fetch(base + asset);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    assert.ok((await response.arrayBuffer()).byteLength > 1000);
+  }
+});
