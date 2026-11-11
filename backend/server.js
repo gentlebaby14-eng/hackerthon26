@@ -1,9 +1,16 @@
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defaultState, plan, products } from './data.js';
 import { ApiError, chat, searchProducts, simulate } from './logic.js';
+import { compareRoutes } from './routes.js';
+import { analyzeFloorplan, modelStatus } from './model-service.js';
 
 const maxBodyBytes = 32 * 1024;
+const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend');
+const sampleDir = path.resolve(frontendDir, '..', 'ai', 'examples', 'first-pair');
 
 function json(res, status, body) {
   res.writeHead(status, {
@@ -16,7 +23,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-async function readJson(req) {
+async function readJson(req, maxBytes = maxBodyBytes) {
   if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
     throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Content-Type: application/json이 필요합니다.');
   }
@@ -24,8 +31,8 @@ async function readJson(req) {
   const chunks = [];
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > maxBodyBytes) {
-      throw new ApiError(413, 'BODY_TOO_LARGE', '요청 본문은 32KB 이하여야 합니다.');
+    if (size > maxBytes) {
+      throw new ApiError(413, 'BODY_TOO_LARGE', `요청 본문은 ${Math.round(maxBytes / 1024)}KB 이하여야 합니다.`);
     }
     chunks.push(chunk);
   }
@@ -43,14 +50,34 @@ export function createApp() {
     if (req.method === 'OPTIONS') return json(res, 204, null);
     try {
       const url = new URL(req.url, 'http://localhost');
+      if (req.method === 'GET' && ['/', '/index.html', '/floorplan.html'].includes(url.pathname)) {
+        const filename = url.pathname === '/floorplan.html' ? 'floorplan.html' : 'index.html';
+        const html = await readFile(path.join(frontendDir, filename));
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(html);
+      }
+      if (req.method === 'GET' && ['/sample/floorplan.png', '/sample/wall-mask.png'].includes(url.pathname)) {
+        const filename = url.pathname === '/sample/floorplan.png' ? 'floorplan-crop.png' : 'wall-mask-crop.png';
+        const png = await readFile(path.join(sampleDir, filename));
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+        return res.end(png);
+      }
+      if (req.method === 'GET' && url.pathname === '/sample/wall-mask-grid.json') {
+        const rows = await readFile(path.join(sampleDir, 'wall-mask-grid.json'));
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+        return res.end(rows);
+      }
       if (req.method === 'GET' && url.pathname === '/api/v1/health') {
-        return json(res, 200, { status: 'ok', demo: true });
+        return json(res, 200, { status: 'ok', demo: true, wallModelReady: modelStatus().ready });
+      }
+      if (req.method === 'GET' && url.pathname === '/api/v1/model/status') {
+        return json(res, 200, modelStatus());
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/demo') {
         return json(res, 200, {
           demo: true, label: '시연용 데이터', state: { ...defaultState },
           room: plan, product: products[0],
-          note: '주소 검색, 사진 분석, 웹 쇼핑 검색, 실제 경로 계산은 연결되지 않았습니다.'
+          note: '기본 시연 경로는 고정 데이터입니다. 도면 벽 분석과 경로 계산은 도면 분석 화면에서 제공합니다.'
         });
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/products') {
@@ -69,6 +96,14 @@ export function createApp() {
       if (req.method === 'POST' && url.pathname === '/api/v1/chat') {
         const body = await readJson(req);
         return json(res, 200, chat(body.message, body.state ?? {}));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/floorplans/analyze') {
+        const body = await readJson(req, 12 * 1024 * 1024);
+        return json(res, 200, await analyzeFloorplan(body.image));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/routes/compare') {
+        const body = await readJson(req, 512 * 1024);
+        return json(res, 200, compareRoutes(body));
       }
       throw new ApiError(404, 'NOT_FOUND', '요청한 API가 없어요.');
     } catch (error) {

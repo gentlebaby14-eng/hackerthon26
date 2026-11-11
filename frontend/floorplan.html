@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 평면도 동선 확인 · Roommate</title>
+<style>
+:root{--bg:#f6f2e9;--paper:#fffdf8;--ink:#292922;--muted:#686b5e;--line:#d9dacd;--olive:#657655;--olive-dark:#44563d;--red:#b34d48;--wine:#79344d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Malgun Gothic",sans-serif}button,input{font:inherit}button{cursor:pointer}a{color:inherit}.app{max-width:980px;margin:auto;padding:0 16px 48px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}.brand{font-weight:900;font-size:22px;letter-spacing:-.05em;color:var(--wine)}.brand small{font-size:10px;margin-left:4px;letter-spacing:0}.back{font-size:13px;text-decoration:none;color:var(--muted)}h1{font-size:clamp(27px,5vw,42px);line-height:1.17;letter-spacing:-.045em;margin:24px 0 9px}h2{font-size:19px;margin:0 0 13px;letter-spacing:-.025em}p{margin:0}.intro{color:var(--muted);max-width:650px}.badge{display:inline-block;background:#ebeee4;color:var(--olive-dark);padding:5px 9px;border-radius:99px;font-size:12px;font-weight:700}.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,370px);gap:16px;margin-top:22px;align-items:start}.card{background:var(--paper);border:1px solid var(--line);border-radius:19px;padding:19px;box-shadow:0 7px 24px #5b604d0b}.card+.card{margin-top:16px}.stack{display:grid;gap:13px}.field{display:grid;gap:6px;font-size:13px;font-weight:700}.field input{width:100%;border:1px solid #cbd0c1;border-radius:9px;padding:10px 11px;background:#fff;color:var(--ink);font-size:16px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hint{font-size:12px;color:var(--muted)}.notice{padding:12px;border-radius:10px;background:#f0f1e9;color:#3b4d37;font-size:13px}.notice.error{background:#fbebea;color:#8e3332}.actions{display:flex;flex-wrap:wrap;gap:7px}.btn{border:1px solid #cdd1c5;border-radius:10px;padding:9px 12px;background:#fff;color:var(--ink);font-weight:700}.btn.primary{background:var(--olive);border-color:var(--olive);color:#fff}.btn:disabled{opacity:.5;cursor:not-allowed}.btn[aria-pressed="true"]{background:#e0e9d7;color:var(--olive-dark);border-color:var(--olive)}.stage-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.canvas-wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#f0eee7;min-height:220px;display:grid;place-items:center}canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}.legend{display:flex;flex-wrap:wrap;gap:15px;margin-top:9px;color:var(--muted);font-size:12px}.dot{display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:50%;vertical-align:middle}.status{margin-top:12px;min-height:40px}.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.result-card{padding:12px;background:#f5f5ef;border:1px solid var(--line);border-radius:12px}.result-card strong{display:block;font-size:18px;margin-top:5px}.result-card.active{border-color:var(--olive)}.result-card.blocked{background:#faeeee;border-color:#e8bbb7}.tab{margin-top:12px}.credit{font-size:11px;color:var(--muted);margin-top:15px}.credit a{color:var(--wine)}@media(max-width:760px){.grid{grid-template-columns:1fr}.app{padding:0 12px 28px}.card{padding:15px}.pair{gap:7px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><div class="brand">Roommate<small>AI</small></div><a class="back" href="index.html">← 가구 배치 화면</a></header>
+  <main>
+    <h1>도면에서 벽을 찾고<br>이동 경로를 비교해요.</h1>
+    <p class="intro">도면을 올려 벽을 확인한 뒤 현관·목적지와 가구의 전후 위치를 찍어 주세요. 실제 치수를 넣으면 벽과 가구를 피하는 경로를 계산합니다.</p>
+    <div class="grid">
+      <section class="card stack" aria-label="입력">
+        <div><span class="badge" id="model-badge">모델 상태 확인 중</span><p class="hint" id="model-message" style="margin-top:6px"></p></div>
+        <div><h2>1. 도면과 벽</h2><label class="field">평면도 이미지<input type="file" id="file" accept="image/png,image/jpeg,image/webp"></label></div>
+        <div class="actions"><button class="btn primary" id="analyze" disabled>U-Net으로 벽 찾기</button><button class="btn" id="sample">공식 정답 마스크로 체험</button></div>
+        <p class="hint">체험 버튼은 CubiCasa5K 주석에서 만든 정답을 사용합니다. AI 예측 결과가 아닙니다.</p>
+        <div><h2>2. 실제 크기</h2><div class="pair"><label class="field">도면 가로(cm)<input type="number" id="room-width" min="100" value="720"></label><label class="field">도면 세로(cm)<input type="number" id="room-height" min="100" value="1200"></label></div></div>
+        <div class="pair"><label class="field">필요한 통로 폭(cm)<input type="number" id="passage" min="10" max="200" value="35"></label><label class="field">가구 가로(cm)<input type="number" id="furniture-width" min="10" value="80"></label></div>
+        <label class="field">가구 깊이(cm)<input type="number" id="furniture-depth" min="10" value="40"></label>
+        <p class="hint">입력한 가로·세로는 벽이 차지하는 도면 영역 전체의 실측 치수로 사용합니다.</p>
+        <div><h2>3. 평면도에 찍기</h2><div class="actions" id="tools"><button class="btn" data-tool="start" aria-pressed="true">① 현관</button><button class="btn" data-tool="end" aria-pressed="false">② 목적지</button><button class="btn" data-tool="before" aria-pressed="false">③ 현재 가구</button><button class="btn" data-tool="after" aria-pressed="false">④ 변경 가구</button></div></div>
+        <p class="hint">버튼을 고른 다음 오른쪽 도면을 누르세요. 같은 버튼을 다시 선택해 위치를 수정할 수 있습니다.</p>
+        <button class="btn primary" id="compare" disabled>전후 동선 계산하기 →</button>
+        <p class="notice status" id="status" role="status">먼저 도면을 올리거나 정답 마스크 체험을 시작해 주세요.</p>
+      </section>
+      <section class="card" aria-label="도면과 결과">
+        <div class="stage-head"><h2>평면도</h2><span class="badge" id="source-badge">도면 대기</span></div>
+        <div class="canvas-wrap"><canvas id="plan" width="900" height="560" aria-label="도면에서 위치 선택"></canvas></div>
+        <div class="legend"><span><i class="dot" style="background:#657655"></i>벽/통행 불가</span><span><i class="dot" style="background:#b34d48"></i>막힌 배치</span><span><i class="dot" style="background:#266a9a"></i>이동 경로</span></div>
+        <div id="results" hidden style="margin-top:20px"><h2>가구 배치 전후</h2><p class="notice" id="summary"></p><div class="actions tab"><button class="btn" id="show-before" aria-pressed="true">현재 배치</button><button class="btn" id="show-after" aria-pressed="false">변경 배치</button></div><div class="result-grid" style="margin-top:10px"><div class="result-card" id="before-card"></div><div class="result-card" id="after-card"></div></div><p class="hint" style="margin-top:9px">경로는 격자 계산입니다. 벽 오인식이나 치수 오차가 있으면 실제 통행과 다를 수 있어요.</p></div>
+        <p class="credit">체험 도면: <a href="https://zenodo.org/records/2613548" target="_blank" rel="noopener">CubiCasa5K</a> · <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a> · train 분할 6044번</p>
+      </section>
+    </div>
+  </main>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const state = { image:null, imageData:null, mask:null, source:null, tool:'start', start:null, end:null, before:null, after:null, results:null, view:'before' };
+const canvas=$('plan'), ctx=canvas.getContext('2d');
+function setStatus(message,error=false){$('status').textContent=message;$('status').classList.toggle('error',error)}
+function updateButtons(){
+  $('analyze').disabled=!state.imageData;
+  $('compare').disabled=!(state.mask&&state.start&&state.end&&state.before&&state.after);
+  document.querySelectorAll('[data-tool]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.tool===state.tool)));
+  $('show-before').setAttribute('aria-pressed',String(state.view==='before'));
+  $('show-after').setAttribute('aria-pressed',String(state.view==='after'));
+}
+function resetAnalysis(){state.mask=null;state.start=null;state.end=null;state.before=null;state.after=null;state.results=null;$('results').hidden=true;updateButtons();draw()}
+function loadImage(src){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error('이미지를 열 수 없어요.'));image.src=src})}
+function fitCanvas(){if(!state.image)return;canvas.width=900;canvas.height=Math.max(260,Math.round(900*state.image.naturalHeight/state.image.naturalWidth));draw()}
+function drawMask(){
+  if(!state.mask)return;
+  ctx.fillStyle='rgba(75,107,59,.66)';
+  const rows=state.mask,h=rows.length,w=rows[0].length;
+  for(let y=0;y<h;y++)for(let x=0;x<w;){if(rows[y][x]!=='1'){x++;continue}let end=x+1;while(end<w&&rows[y][end]==='1')end++;ctx.fillRect(x/w*canvas.width,y/h*canvas.height,(end-x)/w*canvas.width,canvas.height/h+0.5);x=end}
+}
+function marker(position,label,color){if(!position)return;const x=position[0]*canvas.width,y=position[1]*canvas.height;ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=color;ctx.stroke();ctx.fillStyle=color;ctx.font='bold 13px system-ui';ctx.fillText(label,x+13,y-12)}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!state.image){ctx.fillStyle='#eee9df';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#6b6e60';ctx.font='18px system-ui';ctx.textAlign='center';ctx.fillText('도면을 올려 주세요',canvas.width/2,canvas.height/2);ctx.textAlign='left';return}
+  ctx.drawImage(state.image,0,0,canvas.width,canvas.height);drawMask();
+  const variant=state.results?.[state.view];
+  if(variant){
+    const box=variant.furnitureBox;
+    ctx.fillStyle=variant.reachable?'rgba(123,52,77,.56)':'rgba(179,77,72,.7)';
+    ctx.fillRect(box.x*canvas.width,box.y*canvas.height,box.width*canvas.width,box.height*canvas.height);
+    if(variant.path.length){ctx.beginPath();variant.path.forEach(([x,y],i)=>i?ctx.lineTo(x*canvas.width,y*canvas.height):ctx.moveTo(x*canvas.width,y*canvas.height));ctx.strokeStyle=state.view==='after'?'#24704d':'#266a9a';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke()}
+    if(variant.bottleneck&&variant.minimumPassageCm<Number($('passage').value)){marker(variant.bottleneck,'좁은 곳','#b34d48')}
+  }else{
+    marker(state.before,'현재 가구','#79344d');marker(state.after,'변경 가구','#b34d48');
+  }
+  marker(state.start,'현관','#266a9a');marker(state.end,'목적지','#7c6126');
+}
+function pointIsWall(point){if(!state.mask)return false;const x=Math.min(state.mask[0].length-1,Math.floor(point[0]*state.mask[0].length)),y=Math.min(state.mask.length-1,Math.floor(point[1]*state.mask.length));return state.mask[y][x]==='1'}
+canvas.addEventListener('pointerdown',event=>{
+  if(!state.mask){setStatus('벽 마스크를 먼저 불러와 주세요.',true);return}
+  const box=canvas.getBoundingClientRect();const point=[Math.min(1,Math.max(0,(event.clientX-box.left)/box.width)),Math.min(1,Math.max(0,(event.clientY-box.top)/box.height))];
+  if((state.tool==='start'||state.tool==='end')&&pointIsWall(point)){setStatus('벽 위입니다. 빈 공간을 찍어 주세요.',true);return}
+  state[state.tool]=point;state.results=null;$('results').hidden=true;
+  const next={start:'end',end:'before',before:'after',after:'after'};state.tool=next[state.tool];
+  updateButtons();draw();setStatus('위치를 표시했습니다. 나머지 위치도 찍어 주세요.');
+});
+$('tools').addEventListener('click',event=>{const button=event.target.closest('[data-tool]');if(!button)return;state.tool=button.dataset.tool;updateButtons()});
+$('file').addEventListener('change',async event=>{
+  const file=event.target.files?.[0];if(!file)return;
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>8_000_000){setStatus('8MB 이하 PNG/JPEG/WebP를 선택해 주세요.',true);return}
+  try{const reader=new FileReader();const data=await new Promise((resolve,reject)=>{reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('파일을 읽지 못했어요.'));reader.readAsDataURL(file)});state.image=await loadImage(data);state.imageData=data;state.source='upload';$('source-badge').textContent='업로드한 도면';resetAnalysis();fitCanvas();setStatus('U-Net으로 벽 찾기를 눌러 주세요.')}catch(error){setStatus(error.message,true)}
+});
+$('sample').addEventListener('click',async()=>{
+  try{
+    const image=await loadImage('/sample/floorplan.png');const response=await fetch('/sample/wall-mask-grid.json');if(!response.ok)throw new Error('정답 마스크를 읽지 못했어요.');const rows=await response.json();
+    state.image=image;state.imageData=null;state.mask=rows;state.source='ground-truth';state.start=[0.33,0.72];state.end=[0.65,0.62];state.before=[0.50,0.71];state.after=[0.30,0.47];state.results=null;state.tool='start';$('results').hidden=true;$('source-badge').textContent='정답 마스크 체험';fitCanvas();updateButtons();setStatus('공식 정답 벽과 예시 위치를 불러왔어요. 위치를 바꾸거나 바로 전후 동선을 계산해 보세요.');
+  }catch(error){setStatus('샘플을 읽지 못했어요. 백엔드를 실행했는지 확인해 주세요.',true)}
+});
+$('analyze').addEventListener('click',async()=>{
+  if(!state.imageData)return;$('analyze').disabled=true;setStatus('U-Net이 벽을 찾는 중이에요…');
+  try{const response=await fetch('/api/v1/floorplans/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:state.imageData})});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'분석에 실패했어요.');state.mask=data.mask;state.source='model';state.start=null;state.end=null;state.before=null;state.after=null;state.results=null;state.tool='start';$('results').hidden=true;$('source-badge').textContent='U-Net 예측';updateButtons();draw();setStatus('벽 예측을 표시했습니다. 초록색 영역을 확인하고 위치를 찍어 주세요.')}catch(error){setStatus(error.message,true)}finally{updateButtons()}
+});
+$('compare').addEventListener('click',async()=>{
+  if($('compare').disabled)return;setStatus('벽과 가구를 피하는 경로를 계산 중이에요…');$('compare').disabled=true;
+  const body={mask:state.mask,start:state.start,end:state.end,roomWidthCm:Number($('room-width').value),roomHeightCm:Number($('room-height').value),passageCm:Number($('passage').value),furniture:{widthCm:Number($('furniture-width').value),depthCm:Number($('furniture-depth').value),before:state.before,after:state.after}};
+  try{const response=await fetch('/api/v1/routes/compare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'동선 계산에 실패했어요.');state.results=data;state.view='before';$('results').hidden=false;$('summary').textContent=data.summary;for(const key of ['before','after']){const result=data[key],card=$(key+'-card');card.classList.toggle('blocked',!result.reachable);card.innerHTML='<span>'+(key==='before'?'현재 배치':'변경 배치')+'</span><strong>'+(result.reachable?result.lengthCm+'cm 이동':'이동 불가')+'</strong><small>'+(result.reachable?'가장 좁은 경로 약 '+result.minimumPassageCm+'cm':result.reason)+'</small>'}showView('before');setStatus(state.source==='ground-truth'?'공식 정답 벽 마스크로 경로를 계산했습니다.':'U-Net 벽 예측으로 경로를 계산했습니다.')}catch(error){setStatus(error.message,true)}finally{updateButtons()}
+});
+function showView(view){state.view=view;for(const key of ['before','after'])$(key+'-card').classList.toggle('active',key===view);updateButtons();draw()}
+$('show-before').addEventListener('click',()=>showView('before'));
+$('show-after').addEventListener('click',()=>showView('after'));
+async function status(){if(location.protocol==='file:'){setStatus('도면 분석은 백엔드 실행 후 http://127.0.0.1:3000/floorplan.html 에서 사용해 주세요.',true);return}try{const response=await fetch('/api/v1/model/status');const data=await response.json();$('model-badge').textContent=data.ready?'U-Net 사용 가능':'U-Net 학습 전';$('model-message').textContent=data.message}catch{$('model-badge').textContent='서버 연결 확인';$('model-message').textContent='백엔드를 실행해 주세요.'}}
+status();draw();updateButtons();
+</script>
+</body>
+</html>

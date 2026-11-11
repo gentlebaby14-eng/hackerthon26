@@ -1,0 +1,18 @@
+{
+  "source": "CubiCasa5K",
+  "source_url": "https://zenodo.org/records/2613548",
+  "license": "CC BY-NC 4.0",
+  "folder": "high_quality_architectural/6044",
+  "split": "train",
+  "image_size": [
+    3315,
+    2344
+  ],
+  "preview_crop": [
+    920,
+    36,
+    1841,
+    1630
+  ],
+  "wall_pixels": 130375
+}

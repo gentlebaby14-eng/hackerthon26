@@ -76,3 +76,41 @@ test('잘못된 숫자 입력을 거절한다', async () => {
   assert.equal(status, 400);
   assert.equal(data.error.code, 'INVALID_INPUT');
 });
+
+test('학습 가중치가 없으면 AI 분석을 했다고 응답하지 않는다', async () => {
+  const model = await request('/api/v1/model/status');
+  if (model.data.ready) return;
+  const { status, data } = await request('/api/v1/floorplans/analyze', 'POST', { image: 'data:image/png;base64,AAAA' });
+  assert.equal(status, 503);
+  assert.equal(data.error.code, 'MODEL_NOT_READY');
+});
+
+test('공식 정답 도면과 마스크를 화면 체험용으로 제공한다', async () => {
+  for (const filename of ['floorplan.png', 'wall-mask.png']) {
+    const response = await fetch(base + '/sample/' + filename);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    assert.ok((await response.arrayBuffer()).byteLength > 1000);
+  }
+});
+
+test('새 경로 API가 벽 마스크와 가구 전후 위치를 비교한다', async () => {
+  const mask = Array.from({ length: 48 }, (_, y) => Array.from({ length: 48 }, (_, x) =>
+    x === 0 || x === 47 || y === 0 || y === 47 || (x === 24 && (y < 22 || y > 26)) ? '1' : '0').join(''));
+  const { status, data } = await request('/api/v1/routes/compare', 'POST', {
+    mask, start: [0.25, 0.5], end: [0.75, 0.5], roomWidthCm: 480,
+    roomHeightCm: 480, passageCm: 20,
+    furniture: { widthCm: 40, depthCm: 40, before: [0.5, 0.5], after: [0.75, 0.75] }
+  });
+  assert.equal(status, 200);
+  assert.equal(data.before.reachable, false);
+  assert.equal(data.after.reachable, true);
+});
+
+test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () => {
+  for (const page of ['/', '/floorplan.html']) {
+    const response = await fetch(base + page);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /Roommate/i);
+  }
+});

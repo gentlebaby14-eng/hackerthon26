@@ -1,6 +1,6 @@
 # Roommate 시연 백엔드
 
-`프론트 3`의 상품, 평면도, 동선 비교, 상담 문구에 맞춘 **의존성 없는 Node.js 20+ API**입니다. 최신 화면 파일은 `UI.html`입니다. 외부 AI·쇼핑·지도 API는 호출하지 않습니다. 프론트 파일은 현재 자체 시연 데이터로 작동하며, 이 백엔드는 프론트를 연결할 때 사용할 API를 제공합니다.
+기존 상품 검색·고정 답변 챗봇·시연 배치 API와 새 **도면 벽 추론·경로 비교 API**를 제공하는 Node.js 20+ 서버입니다. 화면은 `frontend/`에 있습니다. 외부 GPT·쇼핑·지도 API는 호출하지 않습니다.
 
 ## 실행
 
@@ -11,6 +11,7 @@ npm start
 
 기본 주소는 `http://127.0.0.1:3000`입니다. `PORT` 환경 변수로 포트를 바꿀 수 있습니다. `npm test`로 API 테스트를 실행합니다. npm 패키지 설치는 필요하지 않습니다.
 Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
+브라우저에서 `http://127.0.0.1:3000`을 열면 기존 앱, `http://127.0.0.1:3000/floorplan.html`을 열면 새 도면 화면이 나옵니다.
 
 ## API
 
@@ -22,6 +23,9 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `GET /api/v1/products/oak` | 상품 상세 |
 | `POST /api/v1/simulations` | 현재·추천 배치의 경로, 위험 구간, 최소 통로 폭 비교 |
 | `POST /api/v1/chat` | 키워드별 고정 상담 답변 |
+| `GET /api/v1/model/status` | U-Net 학습 가중치 준비 상태 |
+| `POST /api/v1/floorplans/analyze` | `{"image":"data:image/png;base64,..."}`를 U-Net으로 벽 분할 |
+| `POST /api/v1/routes/compare` | 벽 마스크와 현관·목적지·가구 전후 위치로 경로 비교 |
 
 시뮬레이션 요청 예시:
 
@@ -38,6 +42,10 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 
 `POST /api/v1/chat`은 `{"message":"추천 배치 보여줘","state":{...}}` 형식입니다. `state`에서 빠진 필드는 시연 기본값으로 채웁니다. 응답의 `demo: true`와 `label: "시연용 데이터"`를 화면에 표시하세요. 시뮬레이션의 `room.variants.before/after`에는 프론트 캔버스 기준 좌표가 있고, `currentResult`에는 현재 배치 결과가 있습니다. `recommendedState`를 적용하면 다시 실행할 때 72cm 결과가 나옵니다.
 
-시연 조건 밖의 방 크기·가구·배치·생활 패턴은 `422 DEMO_ONLY`와 `resetDemo`를 반환합니다. 현재 55cm·72cm와 경로는 실제 공간 분석값이 아니라 프론트 3의 고정 시연 값입니다. 주소 크롤링, 사진 분석, 실제 상품 검색, 실제 경로 계산, 3D 시뮬레이션, 사용자 데이터 저장은 아직 구현 범위에 없습니다.
+새 경로 API는 U-Net 출력의 128×128 `mask`(각 행이 `0`/`1` 문자열), `start`/`end` 좌표(이미지 크기에 대한 0~1 비율), `roomWidthCm`/`roomHeightCm`/`passageCm`, `furniture: {widthCm, depthCm, before:[x,y], after:[x,y]}`를 받습니다. 벽과 가구를 장애물로 놓고 필요한 통로 폭의 절반만큼 여유를 두어 경로를 탐색합니다. 결과의 `before`/`after`에 이동 가능 여부, 경로 좌표, 이동 거리, 대략적인 최소 통로 폭을 담습니다. 선택한 가구 한 개의 전후 배치를 비교합니다.
+
+U-Net 가중치는 `ai/checkpoints/walls.pt`에 있어야 합니다. 별도 가상환경을 쓴다면 서버 시작 전 `PYTHON` 환경 변수에 해당 Python 실행 파일을 지정하세요. 가중치가 없으면 분석 API는 `503 MODEL_NOT_READY`를 반환합니다. 공식 정답 마스크를 통한 화면 체험은 학습 없이 가능합니다.
+
+기존 55cm·72cm 시연 API는 그대로 유지하며 실제 경로 계산 결과와 혼동하지 않도록 `demo: true`를 반환합니다. 주소 크롤링, 상품 웹 검색, 3D 시뮬레이션, 사용자 데이터 저장은 아직 구현하지 않았습니다.
 
 로컬 웹앱을 `file://`로 열어도 API 호출이 가능하도록 CORS를 허용합니다. 배포 단계에서는 허용 출처를 제한해야 합니다.
