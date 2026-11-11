@@ -38,14 +38,14 @@ test('조건에 맞는 상품이 없으면 빈 목록을 반환한다', async ()
   assert.deepEqual(data.products, []);
 });
 
-test('실제 상품 추천 API는 잘못된 조건을 거절한다', async () => {
+test('실제 상품 추천 API는 Gemini를 호출하지 않고 중단 상태를 반환한다', async () => {
   const { status, data } = await request('/api/v1/products/recommend', 'POST', {
     roomUse: '침실', desiredFurnitureTypes: ['없는 가구'], existingFurniture: [],
     roomWidthMm: 3300, roomDepthMm: 2700,
     occupantAge: { value: 32, unit: 'years' }, activity: '보통'
   });
-  assert.equal(status, 400);
-  assert.equal(data.error.code, 'INVALID_INPUT');
+  assert.equal(status, 503);
+  assert.equal(data.error.code, 'PRODUCT_API_PAUSED');
 });
 
 test('현재 배치와 추천 배치의 경로, 막힌 구간, 폭을 반환한다', async () => {
@@ -123,7 +123,7 @@ test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () =>
   for (const page of ['/', '/floorplan.html']) {
     const response = await fetch(base + page);
     assert.equal(response.status, 200);
-    assert.match(await response.text(), page === '/' ? /<title>루마이/ : /Roommate/i);
+    assert.match(await response.text(), page === '/' ? /<title>RoomAI/ : /Roommate/i);
   }
   const mobile = await fetch(base + '/room-select.html');
   assert.equal(mobile.status, 200);
@@ -137,4 +137,27 @@ test('사용자가 제공한 두 평면도 이미지를 화면에 제공한다',
     assert.equal(response.headers.get('content-type'), 'image/png');
     assert.ok((await response.arrayBuffer()).byteLength > 1000);
   }
+});
+
+test('저장된 상품 사진을 서버에서도 제공한다', async () => {
+  for (const asset of ['bed-q1', 'bed-q2', 'bed-k1', 'toy-1', 'toy-2', 'toy-3', 'mat-1', 'mat-2', 'mat-3']) {
+    const response = await fetch(base + `/assets/products/${asset}.webp`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/webp');
+    assert.ok((await response.arrayBuffer()).byteLength > 1000);
+  }
+});
+
+test('RoomAI 스타일과 벽 전용 U-Net 상태를 제공한다', async () => {
+  const style = await fetch(base + '/roomai.css');
+  assert.equal(style.status, 200);
+  assert.match(style.headers.get('content-type'), /text\/css/);
+  assert.match(await style.text(), /category-tabs/);
+  const status = await request('/api/v1/walls/status');
+  assert.equal(status.status, 200);
+  assert.equal(status.data.model, 'U-Net wall segmentation');
+  assert.equal(status.data.ready, true);
+  const invalid = await request('/api/v1/walls/analyze', 'POST', { image: 'invalid' });
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.data.error.code, 'INVALID_IMAGE');
 });

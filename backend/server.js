@@ -7,8 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultState, plan, products } from './data.js';
 import { ApiError, chat, searchProducts, simulate } from './logic.js';
 import { compareRoutes } from './routes.js';
-import { analyzeFloorplan, modelStatus } from './model-service.js';
-import { recommendRealProducts } from './product-recommendation.js';
+import { analyzeFloorplan, analyzeWalls, modelStatus, wallModelStatus } from './model-service.js';
 import { detectFurniture } from './furniture-service.js';
 import { predictTrajectory } from './trajectory-service.js';
 
@@ -60,11 +59,21 @@ export function createApp() {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(html);
       }
+      if (req.method === 'GET' && url.pathname === '/roomai.css') {
+        const css = await readFile(path.join(frontendDir, 'roomai.css'));
+        res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(css);
+      }
       if (req.method === 'GET' && ['/assets/baby-floorplan.png', '/assets/bedroom-floorplan.png'].includes(url.pathname)) {
         const filename = path.basename(url.pathname);
         const png = await readFile(path.join(frontendDir, 'assets', filename));
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
         return res.end(png);
+      }
+      if (req.method === 'GET' && /^\/assets\/products\/(?:bed-(?:q1|q2|k1)|toy-[1-3]|mat-[1-3])\.webp$/.test(url.pathname)) {
+        const image = await readFile(path.join(frontendDir, 'assets', 'products', path.basename(url.pathname)));
+        res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=3600' });
+        return res.end(image);
       }
       if (req.method === 'GET' && ['/sample/floorplan.png', '/sample/wall-mask.png'].includes(url.pathname)) {
         const filename = url.pathname === '/sample/floorplan.png' ? 'floorplan-crop.png' : 'wall-mask-crop.png';
@@ -83,6 +92,9 @@ export function createApp() {
       if (req.method === 'GET' && url.pathname === '/api/v1/model/status') {
         return json(res, 200, modelStatus());
       }
+      if (req.method === 'GET' && url.pathname === '/api/v1/walls/status') {
+        return json(res, 200, wallModelStatus());
+      }
       if (req.method === 'GET' && url.pathname === '/api/v1/demo') {
         return json(res, 200, {
           demo: true, label: '시연용 데이터', state: { ...defaultState },
@@ -94,8 +106,9 @@ export function createApp() {
         return json(res, 200, searchProducts(Object.fromEntries(url.searchParams)));
       }
       if (req.method === 'POST' && url.pathname === '/api/v1/products/recommend') {
-        const body = await readJson(req);
-        return json(res, 200, await recommendRealProducts(body));
+        return json(res, 503, {
+          error: { code: 'PRODUCT_API_PAUSED', message: '실시간 상품 추천 API는 잠시 중지했습니다. 프론트엔드의 저장된 상품을 사용하세요.' }
+        });
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/v1/products/')) {
         const id = decodeURIComponent(url.pathname.slice('/api/v1/products/'.length));
@@ -114,6 +127,10 @@ export function createApp() {
       if (req.method === 'POST' && url.pathname === '/api/v1/floorplans/analyze') {
         const body = await readJson(req, 12 * 1024 * 1024);
         return json(res, 200, await analyzeFloorplan(body.image));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/walls/analyze') {
+        const body = await readJson(req, 12 * 1024 * 1024);
+        return json(res, 200, await analyzeWalls(body.image));
       }
       if (req.method === 'POST' && url.pathname === '/api/v1/furniture/detect') {
         const body = await readJson(req, 12 * 1024 * 1024);
