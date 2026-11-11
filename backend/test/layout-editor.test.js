@@ -116,8 +116,9 @@ test('조건 화면에 추가할 가구 해당없음과 기존·변경 배치 �
   assert.match(run('flowControls()'),/해당없음/);
   run("draft.page=5;draft.route={path:[[.1,.1],[.2,.2]],distance:10};draft.compare=draft.route");
   const controls=run('flowControls()');
-  assert.match(controls,/기존 배치/);assert.match(controls,/변경 배치/);assert.match(controls,/A\* 다중 생활 동선/);
-  assert.doesNotMatch(controls,/출발점 찍기|목적지 찍기|필요한 통로 폭/);
+  assert.match(controls,/재생 속도/);assert.match(controls,/▶ 재생/);
+  assert.match(controls,/이전/);assert.match(controls,/가구 배치로 돌아가기/);
+  assert.doesNotMatch(controls,/반복 횟수|무작위 시드|기존 배치|변경 배치|히트맵|좁은 통로|모서리 보호대|일시정지|다시보기/);
 });
 
 test('고정 시연 도면은 지정한 방과 방문 방향을 모델 결과와 무관하게 선택한다',()=>{

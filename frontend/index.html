@@ -721,6 +721,7 @@ const chat=$('#chat');function askChat(raw){if(!raw.trim())return;$('#chat-quest
 .optimization-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.optimization-metrics span{padding:8px;border-radius:10px;background:#efe6db;font-size:10px;line-height:1.4}
 .optimization-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.optimization-actions button{min-height:40px;border-radius:11px;font-weight:800}.optimization-actions button:first-child{background:#702748;color:#fff}
 .simulation-settings{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.simulation-settings label{font-size:10px;color:#654b54}.simulation-settings input,.simulation-settings select{width:100%;margin-top:4px;padding:8px;border-radius:10px;border:1px solid #d8c9bd;background:#fffaf5}
+.simulation-playback{grid-template-columns:1fr}
 .simulation-run{width:100%;min-height:46px;border-radius:13px;background:#702748;color:#fff;font-weight:900}.simulation-run:disabled{opacity:.5}
 .simulation-toggles{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.simulation-toggles button{padding:7px 10px;border-radius:99px;font-size:10px}.simulation-toggles button[aria-pressed=true]{background:#702748;color:#fff}
 .simulation-summary{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.simulation-summary article{padding:10px;border-radius:12px;background:#efe6db;font-size:10px;line-height:1.55}.simulation-summary b{display:block;color:#651d35;font-size:12px}
@@ -826,14 +827,8 @@ function flowControls() {
       '<p class="room-note" id="layout-message" role="status">'+layoutMessage()+'</p>'+
       '<button class="ai-layout-action" data-flow="optimize-layout">✦ AI 배치 추천</button>'+optimization+bottomActions+flowFooter('동선 비교','to-sim');
   }
-  const result=draft.view==='before'?draft.compare:draft.route;
-  const actor=walkerProfile();
-  const visits=draft.visitLabels.length?'<p class="room-note">'+safe(draft.visitLabels.join(' → '))+'</p>':'';
-  const animation='<div class="walk-meta"><span>'+safe(actor.label)+'</span><span>'+safe(state.activity)+' 걸음</span><span>A* 다중 생활 동선</span></div>'+visits+
-    '<div class="simulation-settings"><label>반복 횟수<input type="number" min="100" max="500" step="50" data-simulation="count" value="'+draft.simulationCount+'"></label><label>무작위 시드<input type="number" step="1" data-simulation="seed" value="'+draft.simulationSeed+'"></label><label>사용자 나이<input type="number" min="1" data-field="age" value="'+safe(state.age)+'"></label><label>활동성<select data-field="activity">'+['차분함','보통','활동적'].map(v=>'<option '+(v===state.activity?'selected':'')+'>'+v+'</option>').join('')+'</select></label><label>재생 속도<select data-simulation="speed">'+[[.5,'0.5배'],[1,'1배'],[1.5,'1.5배'],[2,'2배']].map(([v,t])=>'<option value="'+v+'" '+(draft.playbackSpeed===v?'selected':'')+'>'+t+'</option>').join('')+'</select></label><label>분석 기준<span class="entry">'+safe(state.passage)+' cm 통로</span></label></div><button class="simulation-run" data-flow="run-life-simulation" '+(draft.simulationBusy?'disabled':'')+'>'+(draft.simulationBusy?'생활 동선 계산 중…':'생활 동선 시뮬레이션 실행')+'</button>'+
-    '<div class="simulation-toggles"><button data-layer="path" aria-pressed="'+(draft.simulationLayer==='path')+'">경로 표시</button><button data-layer="heat" aria-pressed="'+(draft.simulationLayer==='heat')+'">히트맵 표시</button><button data-overlay="narrow" aria-pressed="'+draft.showNarrow+'">좁은 통로</button><button data-overlay="corners" aria-pressed="'+draft.showCorners+'">모서리 보호대</button></div><div class="walk-controls"><button data-flow="walk-play" aria-pressed="'+layoutMotion.playing+'">▶ 재생</button><button data-flow="walk-pause" '+(!layoutMotion.playing?'disabled':'')+'>Ⅱ 일시정지</button><button data-flow="walk-replay">↻ 다시보기</button></div>'+simulationResults();
-  return '<div class="layout-tools"><button class="chip" data-view="before" aria-pressed="'+(draft.view==='before')+'">BEFORE · 기존 배치</button><button class="chip" data-view="after" aria-pressed="'+(draft.view==='after')+'">AFTER · 변경 배치</button></div>'+animation+
-    (draft.error?'<p class="result alert" role="status">'+safe(draft.error)+'</p>':'')+flowFooter('가구 배치로 돌아가기','back');
+  return '<div class="simulation-settings simulation-playback"><label>재생 속도<select data-simulation="speed">'+[[.5,'0.5배'],[1,'1배'],[1.5,'1.5배'],[2,'2배']].map(([v,t])=>'<option value="'+v+'" '+(draft.playbackSpeed===v?'selected':'')+'>'+t+'</option>').join('')+'</select></label></div>'+
+    '<button class="simulation-run" data-flow="run-life-simulation" '+(draft.simulationBusy?'disabled':'')+'>'+(draft.simulationBusy?'계산 중…':'▶ 재생')+'</button>'+flowFooter('가구 배치로 돌아가기','back');
 }
 
 function simulationResults() {
@@ -1436,7 +1431,7 @@ function seededRandom(seed) {
 }
 function simulationAccessPoint(item,items,door) {
   for(const point of furnitureAccessPoints(item)) {
-    const route=routeBetween(items,door,point,String(Math.min(24,Math.max(10,Number(state.passage)||12))));
+    const route=routeBetween(items,door,point,String(Math.max(10,Number(state.passage)||65)));
     if(route.path?.length)return point;
   }
   return null;
@@ -1468,12 +1463,12 @@ function simulateLifePaths(items,sequences,seed) {
   for(const item of items){const point=simulationAccessPoint(item,items,door);if(point)nodes.set(item.id,point);}
   const cache=new Map(),segment=(from,to)=>{
     const key=from+'>'+to;
-    if(!cache.has(key))cache.set(key,routeBetween(items,nodes.get(from),nodes.get(to),String(Math.min(24,Math.max(10,Number(state.passage)||12)))));
+    if(!cache.has(key))cache.set(key,routeBetween(items,nodes.get(from),nodes.get(to),String(Math.max(10,Number(state.passage)||65))));
     return cache.get(key);
   };
   const paths=[],heat=Array(32*32).fill(0),narrowMap=new Map();let success=0,totalDistance=0,failures=0;
   for(const requested of sequences) {
-    const stops=['door',...requested.filter(id=>nodes.has(id))];if(stops.length<2){failures++;continue;}
+    const stops=['door',...requested];if(stops.length<2||stops.some(id=>!nodes.has(id))){failures++;continue;}
     let path=[],distance=0,failed=false;
     for(let i=1;i<stops.length;i++){const part=segment(stops[i-1],stops[i]);if(!part.path?.length){failed=true;break;}path.push(...part.path.slice(path.length?1:0));distance+=part.distance||0;}
     if(failed){failures++;continue;}success++;totalDistance+=distance;paths.push(path);
@@ -1496,8 +1491,12 @@ async function runLifeSimulation() {
   const allIds=after.map(item=>item.id),allSequences=generateLifeSequences(allIds,count,seed),afterAll=simulateLifePaths(after,allSequences,seed);
   if(allIds.length>common.length)afterResult.notes.push('공통 가구 비교와 별도로 새 가구를 포함한 결과는 성공 '+afterAll.success+'/'+count+'회, 평균 '+metricText(afterAll.averageDistance,'cm')+'입니다.');
   draft.simulation={seed,count,before:beforeResult,after:afterResult,afterAll,baby:state.roomUse==='아기방'&&Number(state.age)<=24};draft.simulationBusy=false;draft.view='after';
-  const first=afterResult.paths[0]||beforeResult.paths[0];if(first){draft.route={path:first,distance:first.slice(1).reduce((sum,p,i)=>sum+Math.hypot((p[0]-first[i][0])*roomWidth(),(p[1]-first[i][1])*roomDepth()),0)};draft.compare={path:beforeResult.paths[0]||first,distance:beforeResult.averageDistance};state.startPoint=first[0];state.endPoint=first.at(-1);}
+  const first=afterResult.paths[0];draft.route=null;draft.compare=null;
+  if(first){draft.route={path:first,distance:first.slice(1).reduce((sum,p,i)=>sum+Math.hypot((p[0]-first[i][0])*roomWidth(),(p[1]-first[i][1])*roomDepth()),0)};state.startPoint=first[0];state.endPoint=first.at(-1);}
+  if(beforeResult.paths[0])draft.compare={path:beforeResult.paths[0],distance:beforeResult.averageDistance};
+  if(!first){state.startPoint=null;state.endPoint=null;stopLayoutMotion(true);}
   render();
+  if(first)playLayout(true);
 }
 
 function prepareAutomaticSimulation() {
@@ -1630,13 +1629,13 @@ render=function renderFlow() {
   ws.classList.toggle('has-plan',[2,4,5].includes(page));
   $('#progress').innerHTML=flowTabs.map((title,i)=>'<li '+(page===i+1?'aria-current="step"':'')+'><button data-flow-page="'+(i+1)+'" '+(i+1>page?'disabled':'')+'>'+title+'</button></li>').join('');
   $('#headline').innerHTML=page===0?'가구를 들이기 전,<br>생활을 먼저 그려보세요.':flowTitles[page];
-  $('#intro').textContent=['','방 용도와 필요한 가구를 골라 주세요.','도면 위에서 원하는 방의 바닥을 터치하세요.','배치해 볼 가구를 골라 주세요.','가구를 터치하거나 끌어서 배치하세요.','가구 사이의 반복 생활 동선과 불편 구간을 비교하세요.'][page];
+  $('#intro').textContent=['','방 용도와 필요한 가구를 골라 주세요.','도면 위에서 원하는 방의 바닥을 터치하세요.','배치해 볼 가구를 골라 주세요.','가구를 터치하거나 끌어서 배치하세요.',''][page];
   $('#controls').innerHTML=page===0?controls():flowControls();
   $('#visual').hidden=![0,2,4,5].includes(page);
   $('#visual').innerHTML=page===0?visual():page===2?
     '<figure class="plan-card"><div class="plan-canvas"><canvas width="960" height="660" data-uploaded-plan aria-label="방 선택 평면도"></canvas></div></figure><div class="legend"><span>파랑 · 벽</span><span>빨강 · 문</span><span>반투명 빨강 · 선택한 방</span></div>':
     page===4?'<figure class="plan-card"><figcaption>평면도 가구 배치</figcaption><div class="plan-canvas"><canvas width="960" height="660" id="layout-plan" aria-label="선택한 방의 가구 배치"></canvas></div></figure><div class="legend"><span>베이지 · 현재 가구</span><span>버건디 · 새 가구</span></div>':
-    page===5?'<figure class="plan-card"><div class="plan-canvas"><canvas width="960" height="660" id="layout-plan" aria-label="반복 생활 동선 분석 평면도"></canvas></div></figure><div class="legend"><span>연한~진한 버건디 · 시뮬레이션 이동 빈도</span><span>빨강 · 좁은 구간</span><span>주황 · 보호대 검토 모서리</span></div>':'';
+    page===5?'<figure class="plan-card"><div class="plan-canvas"><canvas width="960" height="660" id="layout-plan" aria-label="반복 생활 동선 분석 평면도"></canvas></div></figure>':'';
   if(page===2){drawUploadedPlan();bindUploadedPlan();}
   if(page===4||page===5){paintLayout();bindLayout();}
 };
@@ -1769,9 +1768,8 @@ document.addEventListener('click',event=>{
     case 'retry-photo': detectPhotoFurniture();return;
     case 'to-sim': {
       stopLayoutMotion(true);state.tapMode='start';
-      const ready=prepareAutomaticSimulation();
+      draft.route=null;draft.compare=null;draft.simulation=null;
       flowGo(5);
-      if(ready) requestAnimationFrame(()=>replayLayout());
       return;
     }
     case 'walk-play': playLayout(false);return;
