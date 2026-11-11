@@ -715,13 +715,24 @@ const chat=$('#chat');function askChat(raw){if(!raw.trim())return;$('#chat-quest
 .walk-controls button[aria-pressed=true]{background:#702748;color:#fff}
 .walk-meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .walk-meta span{font-size:10px;padding:4px 8px;border-radius:99px;background:#eee5da;color:#654b54}
+.ai-layout-action{width:100%;min-height:52px;margin:0 0 10px;border-radius:15px;background:linear-gradient(135deg,#9e4668,#651d35);color:#fff;font-weight:900;box-shadow:0 5px 14px #70274835}
+.optimization-card{margin:10px 0;padding:13px;border:1px solid #d8bdc5;border-radius:15px;background:#fff8f4}
+.optimization-card strong{display:block;margin-bottom:7px;color:#651d35}.optimization-card p{margin:5px 0;font-size:12px;line-height:1.55}
+.optimization-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.optimization-metrics span{padding:8px;border-radius:10px;background:#efe6db;font-size:10px;line-height:1.4}
+.optimization-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.optimization-actions button{min-height:40px;border-radius:11px;font-weight:800}.optimization-actions button:first-child{background:#702748;color:#fff}
+.simulation-settings{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.simulation-settings label{font-size:10px;color:#654b54}.simulation-settings input,.simulation-settings select{width:100%;margin-top:4px;padding:8px;border-radius:10px;border:1px solid #d8c9bd;background:#fffaf5}
+.simulation-run{width:100%;min-height:46px;border-radius:13px;background:#702748;color:#fff;font-weight:900}.simulation-run:disabled{opacity:.5}
+.simulation-toggles{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.simulation-toggles button{padding:7px 10px;border-radius:99px;font-size:10px}.simulation-toggles button[aria-pressed=true]{background:#702748;color:#fff}
+.simulation-summary{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.simulation-summary article{padding:10px;border-radius:12px;background:#efe6db;font-size:10px;line-height:1.55}.simulation-summary b{display:block;color:#651d35;font-size:12px}
+.analysis-notes{margin:8px 0;padding:10px 12px;border-radius:12px;background:#fff8f4;font-size:11px;line-height:1.55}.analysis-notes p{margin:3px 0}
 </style>
 <script>
 const flowTitles = ['','방 맞춤 조건 선택','평면도에서 방 선택','내 방에 어울리는 가구','방에 가구 배치하기','동선 시뮬레이션'];
 const flowTabs = ['조건 선택','방 선택','가구 찾기','가구 배치','동선 확인'];
 const draft = {page:0, photo:null, photoUrl:'', photoStatus:'idle', photoMessage:'',
   doorSide:'auto', correction:false, items:[], active:null, picks:[], route:null, compare:null, view:'after', error:'', uploadToken:0,
-  gruPath:null, gruLabel:'', gruStatus:'idle', visitLabels:[], trajectorySource:'route'};
+  optimization:null, optimizationMessage:'', visitLabels:[], simulation:null, simulationBusy:false,
+  simulationCount:100, simulationSeed:2026, simulationLayer:'path', showNarrow:true, showCorners:true, playbackSpeed:1};
 const furnitureNames = {bed:'침대',desk:'책상',cabinet:'수납장',sofa:'소파',couch:'소파',chair:'의자',table:'테이블',wardrobe:'옷장',bookshelf:'책장'};
 const nominalSizes = {bed:[110,200],desk:[100,55],cabinet:[75,40],sofa:[130,70],couch:[130,70],chair:[45,45],table:[90,60],wardrobe:[90,55],bookshelf:[70,30]};
 const wallNames={top:'위 벽',bottom:'아래 벽',left:'왼쪽 벽',right:'오른쪽 벽'};
@@ -748,15 +759,14 @@ function roomBounds() {
   return cachedBounds;
 }
 
-function clearRoutes() {
+function clearRoutes(clearOptimization=true) {
   stopMotion(true);
   stopLayoutMotion(true);
   draft.route=null;
   draft.compare=null;
-  draft.gruPath=null;
-  draft.gruLabel='';draft.gruStatus='idle';
   draft.visitLabels=[];
-  draft.trajectorySource='route';
+  draft.simulation=null;draft.simulationBusy=false;
+  if(clearOptimization){draft.optimization=null;draft.optimizationMessage='';}
   draft.error='';
 }
 
@@ -807,21 +817,31 @@ function flowControls() {
     const door='<label class="field"><span>촬영한 방문의 평면도 방향</span><select id="photo-door-side">'+[['auto','자동 인식'],['top','위쪽'],['bottom','아래쪽'],['left','왼쪽'],['right','오른쪽']].map(([v,t])=>'<option value="'+v+'" '+(draft.doorSide===v?'selected':'')+'>'+t+'</option>').join('')+'</select></label><p class="room-note">'+(effectiveDoorSide()?'방문에서 방 안쪽을 바라본 사진 기준으로 평면도에 자동 배치해요.':'문을 확정하지 못했어요. 위·아래·왼쪽·오른쪽 중 촬영한 방문 방향을 선택하세요.')+' 배치 후 가구를 평면도에서 직접 끌어 보정할 수 있어요.</p>';
     const sizeEditor=item?'<div class="selected-size"><strong>'+name+'</strong><small>'+item.w+' × '+item.d+' cm</small></div><p class="room-note">모서리의 흰색 점을 끌어 크기를 줄이거나 늘리세요.</p><details><summary>치수 직접 입력</summary><div class="inputs">'+dimension('가로','w',item.w)+dimension('세로','d',item.d)+'</div></details>':'';
     const bottomActions=item?'<div class="layout-bottom-actions"><button data-flow="rotate-item">↻ 가구 90° 회전</button><button class="remove" data-flow="remove-item">가구 삭제</button></div>':'';
+    const optimization=optimizationPanel();
     return '<div class="layout-add"><button data-flow="add-products" '+(!unplacedProducts().length?'disabled':'')+'>＋ 고른 가구 추가하기</button><button data-flow="add-manual">＋ 직접 추가</button></div>'+uploadControl('flow-room-photo','방 사진으로 가구 자동 배치',draft.photo?.name,'사진을 올리거나 바꾸면 YOLO가 분석해 자동 배치해요')+'<p class="room-note" role="status">'+safe(draft.photoMessage || '방 사진을 올리면 현재 가구를 찾아 이 방에 배치해요.')+'</p>'+door+
       (draft.photoStatus==='error'?'<button data-flow="retry-photo">YOLO 다시 실행</button>':'')+
       '<div class="layout-tools">'+draft.items.map(entry=>'<button class="chip" data-item-id="'+safe(entry.id)+'" aria-pressed="'+(entry.id===draft.active)+'">'+safe(entry.name)+(entry.source==='yolo'&&entry.confidence!==null?' · '+Math.round(entry.confidence*100)+'%'+(entry.photoWall?' · '+wallNames[entry.photoWall]+' 방향':' · 사진 바닥 위치'):entry.source==='product'?' · 새 가구':'')+'</button>').join('')+'</div>'+
       (draft.correction?'<p role="status">선택한 가구의 중심 위치를 평면도에서 눌러 주세요.</p>':'')+sizeEditor+
       '<details class="room-scale"><summary>방 크기 기준 · 약 '+safe(roomWidth())+' × '+safe(roomDepth())+' cm</summary><p class="room-note">도면에 적힌 방 치수와 다르면 수정하세요.</p><div class="inputs">'+field('가로','width','mm')+field('세로','height','mm')+'</div></details>'+
       '<p class="room-note" id="layout-message" role="status">'+layoutMessage()+'</p>'+
-      bottomActions+flowFooter('동선 시뮬레이션','to-sim');
+      '<button class="ai-layout-action" data-flow="optimize-layout">✦ AI 배치 추천</button>'+optimization+bottomActions+flowFooter('동선 비교','to-sim');
   }
   const result=draft.view==='before'?draft.compare:draft.route;
   const actor=walkerProfile();
-  const gruText=draft.gruStatus==='loading'?'GRU 다음 방향 분석 중':draft.trajectorySource==='gru'?'GRU 다음 방향 · '+safe(draft.gruLabel):'안전 동선 준비';
   const visits=draft.visitLabels.length?'<p class="room-note">'+safe(draft.visitLabels.join(' → '))+'</p>':'';
-  const animation='<div class="walk-meta"><span>'+safe(actor.label)+'</span><span>'+safe(state.activity)+' 걸음</span><span>'+gruText+'</span></div>'+visits+'<div class="walk-controls"><button data-flow="walk-play" aria-pressed="'+layoutMotion.playing+'">▶ 재생</button><button data-flow="walk-pause" '+(!layoutMotion.playing?'disabled':'')+'>Ⅱ 일시정지</button><button data-flow="walk-replay">↻ 다시보기</button></div>';
-  return '<div class="layout-tools"><button class="chip" data-view="before" aria-pressed="'+(draft.view==='before')+'">기존 배치</button><button class="chip" data-view="after" aria-pressed="'+(draft.view==='after')+'">새 배치</button></div>'+animation+
+  const animation='<div class="walk-meta"><span>'+safe(actor.label)+'</span><span>'+safe(state.activity)+' 걸음</span><span>A* 다중 생활 동선</span></div>'+visits+
+    '<div class="simulation-settings"><label>반복 횟수<input type="number" min="100" max="500" step="50" data-simulation="count" value="'+draft.simulationCount+'"></label><label>무작위 시드<input type="number" step="1" data-simulation="seed" value="'+draft.simulationSeed+'"></label><label>사용자 나이<input type="number" min="1" data-field="age" value="'+safe(state.age)+'"></label><label>활동성<select data-field="activity">'+['차분함','보통','활동적'].map(v=>'<option '+(v===state.activity?'selected':'')+'>'+v+'</option>').join('')+'</select></label><label>재생 속도<select data-simulation="speed">'+[[.5,'0.5배'],[1,'1배'],[1.5,'1.5배'],[2,'2배']].map(([v,t])=>'<option value="'+v+'" '+(draft.playbackSpeed===v?'selected':'')+'>'+t+'</option>').join('')+'</select></label><label>분석 기준<span class="entry">'+safe(state.passage)+' cm 통로</span></label></div><button class="simulation-run" data-flow="run-life-simulation" '+(draft.simulationBusy?'disabled':'')+'>'+(draft.simulationBusy?'생활 동선 계산 중…':'생활 동선 시뮬레이션 실행')+'</button>'+
+    '<div class="simulation-toggles"><button data-layer="path" aria-pressed="'+(draft.simulationLayer==='path')+'">경로 표시</button><button data-layer="heat" aria-pressed="'+(draft.simulationLayer==='heat')+'">히트맵 표시</button><button data-overlay="narrow" aria-pressed="'+draft.showNarrow+'">좁은 통로</button><button data-overlay="corners" aria-pressed="'+draft.showCorners+'">모서리 보호대</button></div><div class="walk-controls"><button data-flow="walk-play" aria-pressed="'+layoutMotion.playing+'">▶ 재생</button><button data-flow="walk-pause" '+(!layoutMotion.playing?'disabled':'')+'>Ⅱ 일시정지</button><button data-flow="walk-replay">↻ 다시보기</button></div>'+simulationResults();
+  return '<div class="layout-tools"><button class="chip" data-view="before" aria-pressed="'+(draft.view==='before')+'">BEFORE · 기존 배치</button><button class="chip" data-view="after" aria-pressed="'+(draft.view==='after')+'">AFTER · 변경 배치</button></div>'+animation+
     (draft.error?'<p class="result alert" role="status">'+safe(draft.error)+'</p>':'')+flowFooter('가구 배치로 돌아가기','back');
+}
+
+function simulationResults() {
+  const s=draft.simulation;if(!s)return '<p class="room-note">설정된 조건에서 반복 이동을 계산하면 경로 성공률, 이동 거리, 히트맵과 불편 구간을 비교해요.</p>';
+  const card=(label,result)=>'<article><b>'+label+'</b>성공 '+result.success+'/'+result.runs+'회 ('+metricText(result.successRate,'%')+')<br>실패 '+result.failures+'회<br>평균 이동 '+metricText(result.averageDistance,'cm')+'<br>통로 부족 '+result.narrow.length+'곳</article>';
+  const active=draft.view==='before'?s.before:s.after,notes=active.notes.slice(0,3).map(note=>'<p>• '+safe(note)+'</p>').join('');
+  const cornerNotes=active.corners.slice(0,3).map(c=>'<p>• '+safe(c.label)+' · '+safe(c.reason)+'</p>').join('');
+  return '<div class="simulation-summary">'+card('BEFORE · 기존 배치',s.before)+card('AFTER · 변경 배치',s.after)+'</div><div class="analysis-notes"><p><b>실제 계산 결과</b> · 같은 시드와 공통 가구 목적지 규칙으로 비교했어요.</p>'+notes+cornerNotes+'<p>히트맵은 실제 사람의 이동 빈도가 아니라 설정된 조건에서의 시뮬레이션 이동 빈도입니다.</p>'+(s.baby?'<p>모서리 표시는 부상 예측이 아니며, 경로와 가까운 모서리의 보호대 설치 검토용입니다.</p>':'')+'</div>';
 }
 
 function dimension(labelText,key,value) {
@@ -872,10 +892,97 @@ function captureInitialLayout(items=draft.items.filter(item=>item.source!=='prod
   for(const item of items)Object.assign(item,{initialX:item.x,initialY:item.y,initialW:item.w,initialD:item.d});
 }
 function beforeLayoutItems() {
+  if(draft.optimization?.beforeItems)return draft.optimization.beforeItems.map(item=>({...item}));
   return draft.items.filter(item=>item.source!=='product').map(item=>({...item,
     x:item.initialX??item.x,y:item.initialY??item.y,w:item.initialW??item.w,d:item.initialD??item.d}));
 }
 let itemSequence=0;
+
+function metricText(value,suffix='') {return Number.isFinite(value)?Math.round(value*10)/10+suffix:'경로 없음';}
+function optimizationPanel() {
+  if(draft.optimizationMessage)return '<div class="optimization-card" role="status"><strong>AI 배치 추천</strong><p>'+safe(draft.optimizationMessage)+'</p></div>';
+  const o=draft.optimization;
+  if(!o)return '';
+  const current=o.current,recommended=o.recommended,better=recommended.score>current.score+.1;
+  return '<div class="optimization-card" role="status"><strong>'+safe(o.targetName)+' 배치 분석 결과</strong><p>'+safe(o.reason)+'</p><div class="optimization-metrics">'+
+    '<span><b>기존 배치</b><br>점수 '+metricText(current.score)+'점<br>통로 '+metricText(current.passage,'cm')+'<br>A* '+metricText(current.distance,'cm')+'</span>'+
+    '<span><b>추천 배치</b><br>점수 '+metricText(recommended.score)+'점<br>통로 '+metricText(recommended.passage,'cm')+'<br>A* '+metricText(recommended.distance,'cm')+'</span></div>'+
+    '<p>활용 가능 공간 '+metricText(recommended.usable,'㎡')+(better?' · 실제 계산에서 추천 배치가 더 높은 점수를 받았어요.':' · 현재 배치가 추천 후보보다 나쁘지 않아 기존 위치를 유지해도 좋아요.')+'</p>'+
+    '<div class="optimization-actions"><button data-flow="apply-optimization">추천 배치 적용</button><button data-flow="cancel-optimization">원래대로</button></div></div>';
+}
+
+function doorSwingZone() {
+  const side=effectiveDoorSide();if(!side)return null;
+  const preset=knownDemoPlan(),anchor=preset?.door||({top:[.5,0],bottom:[.5,1],left:[0,.5],right:[1,.5]})[side];
+  const doorWidth=Math.min(.32,90/(side==='top'||side==='bottom'?roomWidth():roomDepth()));
+  const depth=Math.min(.38,90/(side==='top'||side==='bottom'?roomDepth():roomWidth()));
+  if(side==='top')return {x1:anchor[0]-doorWidth,x2:anchor[0]+doorWidth,y1:0,y2:depth};
+  if(side==='bottom')return {x1:anchor[0]-doorWidth,x2:anchor[0]+doorWidth,y1:1-depth,y2:1};
+  if(side==='left')return {x1:0,x2:depth,y1:anchor[1]-doorWidth,y2:anchor[1]+doorWidth};
+  return {x1:1-depth,x2:1,y1:anchor[1]-doorWidth,y2:anchor[1]+doorWidth};
+}
+function intersectsDoorSwing(item,x=item.x,y=item.y) {
+  const z=doorSwingZone();if(!z)return false;const {w,d}=footprint(item);
+  return x+w/2>z.x1&&x-w/2<z.x2&&y+d/2>z.y1&&y-d/2<z.y2;
+}
+function itemClearance(item,others,x=item.x,y=item.y) {
+  const wall=Math.min((x-item.w/roomWidth()/2)*roomWidth(),(1-x-item.w/roomWidth()/2)*roomWidth(),
+    (y-item.d/roomDepth()/2)*roomDepth(),(1-y-item.d/roomDepth()/2)*roomDepth());
+  let clearance=wall;
+  for(const other of others) {
+    const dx=Math.max(0,Math.abs((x-other.x)*roomWidth())-(item.w+other.w)/2);
+    const dy=Math.max(0,Math.abs((y-other.y)*roomDepth())-(item.d+other.d)/2);
+    clearance=Math.min(clearance,Math.hypot(dx,dy));
+  }
+  return Math.max(0,clearance*2);
+}
+function usableArea(items) {return Math.max(0,(roomWidth()*roomDepth()-items.reduce((sum,item)=>sum+item.w*item.d,0))/10000);}
+function routeBetween(items,start,end,passage='12') {
+  const savedStart=state.startPoint,savedEnd=state.endPoint,savedPassage=state.passage;
+  state.startPoint=start;state.endPoint=end;state.passage=passage;
+  const result=findLayoutRoute(items);
+  state.startPoint=savedStart;state.endPoint=savedEnd;state.passage=savedPassage;
+  return result;
+}
+function evaluateArrangement(items,target,start,end) {
+  const others=items.filter(item=>item.id!==target.id),passage=itemClearance(target,others);
+  const route=routeBetween(items,start,end,String(Math.min(24,Math.max(10,Number(state.passage)||12))));
+  const usable=usableArea(items),distance=route.path?.length?route.distance:Infinity;
+  const distanceScore=Number.isFinite(distance)?Math.max(0,100-distance/8):0;
+  return {passage,distance,usable,route,score:Math.round((Math.min(100,passage)*.5+distanceScore*.35+Math.min(100,usable*10)*.15)*10)/10};
+}
+function optimizeFurnitureLayout() {
+  const target=[...draft.items].reverse().find(item=>item.source==='product'||item.source==='manual');
+  draft.optimization=null;draft.optimizationMessage='';
+  if(!target){draft.optimizationMessage='먼저 새 가구를 추가한 뒤 AI 배치 추천을 눌러 주세요.';return false;}
+  const beforeItems=draft.items.map(item=>({...item})),base=findAnySafeRoute(beforeItems);
+  if(!base.path?.length){draft.optimizationMessage='조건을 만족하는 배치를 찾지 못했습니다';return false;}
+  const start=base.path[0],end=base.path.at(-1),others=beforeItems.filter(item=>item.id!==target.id),raw=[];
+  const rotations=[[target.w,target.d],[target.d,target.w]].filter((size,index,list)=>index===list.findIndex(v=>v[0]===size[0]&&v[1]===size[1]));
+  for(const [w,d] of rotations)for(let gy=1;gy<16;gy++)for(let gx=1;gx<16;gx++) {
+    const candidate={...target,w,d,x:gx/16,y:gy/16};
+    if(!itemFits(candidate)||intersectsDoorSwing(candidate)||others.some(other=>overlaps(candidate,other)))continue;
+    raw.push({item:candidate,geometry:itemClearance(candidate,others)});
+  }
+  if(!raw.length){draft.optimizationMessage='조건을 만족하는 배치를 찾지 못했습니다';return false;}
+  const current=evaluateArrangement(beforeItems,target,start,end);
+  const shortlisted=raw.sort((a,b)=>b.geometry-a.geometry).slice(0,28);
+  let best=null;
+  for(const entry of shortlisted) {
+    const items=beforeItems.map(item=>item.id===target.id?entry.item:{...item});
+    const metrics=evaluateArrangement(items,entry.item,start,end);
+    if(metrics.route.path?.length&&(!best||metrics.score>best.metrics.score))best={item:entry.item,items,metrics};
+  }
+  if(!best){draft.optimizationMessage='조건을 만족하는 배치를 찾지 못했습니다';return false;}
+  const recommended=best.metrics,better=recommended.score>current.score+.1;
+  draft.items=best.items.map(item=>({...item}));draft.active=target.id;
+  draft.optimization={targetId:target.id,targetName:target.name,beforeItems,start,end,current,recommended,
+    reason:better?'가구 겹침과 방문 개폐 공간을 피하면서 통로 여유와 A* 이동 거리를 함께 계산해 가장 높은 점수의 위치를 골랐어요.':'모든 후보를 실제 계산한 결과 현재 배치의 점수가 더 높거나 같아요. 가장 가까운 최상위 후보를 미리 표시했어요.',applied:false};
+  draft.compare=current.route;draft.route=recommended.route;draft.view='after';draft.error='';return true;
+}
+function restoreOptimization() {
+  if(!draft.optimization)return;draft.items=draft.optimization.beforeItems.map(item=>({...item}));draft.optimization=null;draft.optimizationMessage='추천 배치를 취소하고 기존 배치로 돌아왔어요.';clearRoutes(false);
+}
 
 // Photo coordinates describe a view from the doorway, facing into the room.
 function photoBox(raw, width, height) {
@@ -1070,6 +1177,11 @@ function paintLayout(canvas=$('#layout-plan')) {
   ctx.fillRect(0,0,480,330);
   ctx.drawImage(state.floorplanImage,s.x,s.y,s.w,s.h,r.x,r.y,r.w,r.h);
   const items=draft.page===5&&draft.view==='before'?beforeLayoutItems():draft.items;
+  const simulation=draft.simulation&&(draft.view==='before'?draft.simulation.before:draft.simulation.after);
+  if(draft.page===5&&simulation&&draft.simulationLayer==='heat') {
+    const max=Math.max(1,...simulation.heat);
+    for(let y=0;y<32;y++)for(let x=0;x<32;x++){const value=simulation.heat[y*32+x];if(!value)continue;const alpha=.08+.52*Math.sqrt(value/max);ctx.fillStyle='rgba(112,39,72,'+alpha+')';ctx.fillRect(r.x+x*r.w/32,r.y+y*r.h/32,r.w/32+1,r.h/32+1);}
+  }
   for(const item of items) {
     const {w,d}=footprint(item);
     if(!Number.isFinite(w+d)) continue;
@@ -1084,7 +1196,7 @@ function paintLayout(canvas=$('#layout-plan')) {
   if(draft.page!==5) return;
   const result=draft.view==='before'?draft.compare:draft.route;
   const map=([x,y])=>[r.x+x*r.w,r.y+y*r.h];
-  if(result?.path?.length) {
+  if(result?.path?.length&&draft.simulationLayer==='path') {
     const path=result.path.map(map);
     line(ctx,path,'#702748',3);
     const activePath=animationPath(result).map(map);
@@ -1092,6 +1204,8 @@ function paintLayout(canvas=$('#layout-plan')) {
     if(pose) drawWalkingCharacter(ctx,pose.point,pose.angle,layoutMotion.stepPhase,layoutMotion.playing,
       layoutMotion.progress>0&&layoutMotion.progress<1);
   }
+  if(simulation&&draft.showNarrow)for(const narrow of simulation.narrow.slice(0,5)){const [x,y]=map(narrow.point);ctx.fillStyle='#b34d48';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();}
+  if(simulation&&draft.showCorners)for(const corner of simulation.corners.slice(0,8)){const [x,y]=map([corner.x,corner.y]);ctx.fillStyle='#e48736';ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();ctx.stroke();}
   for(const [point,color] of [[state.startPoint,'#47755a'],[state.endPoint,'#ab5f38']]) {
     if(!point) continue;
     const [x,y]=map(point);
@@ -1122,8 +1236,9 @@ function bindLayout() {
       ((event.clientY-rect.top-(rect.height-330*scale)/2)/scale-r.y)/r.h];
   }
   canvas.onpointerdown=event=>{
-    if(draft.page!==4) return;
     const [x,y]=pointer(event);
+    if(draft.page===5&&draft.simulation&&draft.showCorners){const result=draft.view==='before'?draft.simulation.before:draft.simulation.after,corner=result.corners.find(c=>Math.hypot((c.x-x)*editorRect().w,(c.y-y)*editorRect().h)<12);if(corner){draft.error=corner.label+' · '+corner.reason;render();}return;}
+    if(draft.page!==4) return;
     if(draft.correction&&selectedItem()&&roomCell(x,y)){
       Object.assign(selectedItem(),{x,y,initialX:x,initialY:y,corrected:true});draft.correction=false;clearRoutes();render();return;
     }
@@ -1315,7 +1430,84 @@ function buildFurnitureVisitRoute(items,baseRoute,order=furnitureVisitOrder(item
   return path.length>1?{path,distance,labels}:{...baseRoute,labels:['문','방 안쪽']};
 }
 
+function seededRandom(seed) {
+  let value=(Number(seed)||1)>>>0;
+  return ()=>{value+=0x6D2B79F5;let t=value;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};
+}
+function simulationAccessPoint(item,items,door) {
+  for(const point of furnitureAccessPoints(item)) {
+    const route=routeBetween(items,door,point,String(Math.min(24,Math.max(10,Number(state.passage)||12))));
+    if(route.path?.length)return point;
+  }
+  return null;
+}
+function pointClearance(point,items) {
+  const [x,y]=point,wall=Math.min(x*roomWidth(),(1-x)*roomWidth(),y*roomDepth(),(1-y)*roomDepth());
+  let best={distance:wall,label:'벽'};
+  for(const item of items){const dx=Math.max(0,Math.abs((x-item.x)*roomWidth())-item.w/2),dy=Math.max(0,Math.abs((y-item.y)*roomDepth())-item.d/2),distance=Math.hypot(dx,dy);if(distance<best.distance)best={distance,label:item.name};}
+  return best;
+}
+function analyzeCorners(items,paths) {
+  if(!(state.roomUse==='아기방'&&Number(state.age)<=24))return [];
+  const eligible=items.filter(item=>!/침대|소파|매트/i.test(item.name)),results=[];
+  for(const item of eligible) {
+    const {w,d}=footprint(item),corners=[['왼쪽 위',item.x-w/2,item.y-d/2],['오른쪽 위',item.x+w/2,item.y-d/2],['오른쪽 아래',item.x+w/2,item.y+d/2],['왼쪽 아래',item.x-w/2,item.y+d/2]];
+    for(const [side,x,y] of corners) {
+      const exposed=roomCell(x,y)&&items.every(other=>other.id===item.id||Math.hypot((x-other.x)*roomWidth(),(y-other.y)*roomDepth())>Math.max(other.w,other.d)/2);
+      let count=0,min=Infinity;
+      if(exposed)for(const path of paths)for(const point of path){const distance=Math.hypot((point[0]-x)*roomWidth(),(point[1]-y)*roomDepth());min=Math.min(min,distance);if(distance<=35)count++;}
+      results.push({itemId:item.id,x,y,count,min,label:item.name+' '+side+' 모서리',reason:!exposed?'접근이 어려워 상대적으로 낮은 우선순위':count?'시뮬레이션 경로와 가까우므로 보호대 설치를 검토하세요':'계산된 경로의 접근 빈도가 낮아요'});
+    }
+  }
+  return results.filter(c=>c.count>0).sort((a,b)=>b.count-a.count||a.min-b.min);
+}
+function simulateLifePaths(items,sequences,seed) {
+  const base=findAnySafeRoute(items),runs=sequences.length,empty={runs,success:0,failures:runs,successRate:0,averageDistance:0,paths:[],heat:Array(32*32).fill(0),narrow:[],corners:[],notes:['방문에서 접근 가능한 생활 목적지를 찾지 못했습니다.']};
+  if(!base.path?.length)return empty;
+  const door=base.path[0],byId=new Map(items.map(item=>[item.id,item])),nodes=new Map([['door',door]]);
+  for(const item of items){const point=simulationAccessPoint(item,items,door);if(point)nodes.set(item.id,point);}
+  const cache=new Map(),segment=(from,to)=>{
+    const key=from+'>'+to;
+    if(!cache.has(key))cache.set(key,routeBetween(items,nodes.get(from),nodes.get(to),String(Math.min(24,Math.max(10,Number(state.passage)||12)))));
+    return cache.get(key);
+  };
+  const paths=[],heat=Array(32*32).fill(0),narrowMap=new Map();let success=0,totalDistance=0,failures=0;
+  for(const requested of sequences) {
+    const stops=['door',...requested.filter(id=>nodes.has(id))];if(stops.length<2){failures++;continue;}
+    let path=[],distance=0,failed=false;
+    for(let i=1;i<stops.length;i++){const part=segment(stops[i-1],stops[i]);if(!part.path?.length){failed=true;break;}path.push(...part.path.slice(path.length?1:0));distance+=part.distance||0;}
+    if(failed){failures++;continue;}success++;totalDistance+=distance;paths.push(path);
+    for(const point of path){const hx=Math.max(0,Math.min(31,Math.floor(point[0]*32))),hy=Math.max(0,Math.min(31,Math.floor(point[1]*32)));heat[hy*32+hx]++;const c=pointClearance(point,items),width=c.distance*2;if(width<Number(state.passage)){const key=c.label+'-'+hx+'-'+hy;const old=narrowMap.get(key);if(!old||width<old.width)narrowMap.set(key,{point,width,obstacle:c.label});}}
+  }
+  const narrow=[...narrowMap.values()].sort((a,b)=>a.width-b.width).slice(0,8),notes=narrow.slice(0,3).map(n=>'경로의 '+n.obstacle+' 인접 구간 통로가 약 '+Math.round(n.width)+'cm로 설정한 최소 폭보다 좁습니다.');
+  if(failures)notes.push('목적지 조합 '+failures+'회는 벽 또는 가구로 경로가 막혀 실패했습니다.');
+  const corners=analyzeCorners(items,paths);
+  return {runs,success,failures,successRate:runs?Math.round(success/runs*1000)/10:0,averageDistance:success?Math.round(totalDistance/success*10)/10:0,paths,heat,narrow,corners,notes};
+}
+function generateLifeSequences(ids,count,seed) {
+  const random=seededRandom(seed),activityStops={차분함:2,보통:3,활동적:4}[state.activity]||3,sequences=[];
+  for(let run=0;run<count;run++){const pool=[...ids],stops=[];const length=Math.min(pool.length,Math.max(1,activityStops+(random()<.35?1:0)));while(pool.length&&stops.length<length){const index=Math.floor(random()*pool.length);stops.push(pool.splice(index,1)[0]);if(random()<.22&&stops.length<length)stops.push(stops.at(-1));}sequences.push(stops);}
+  return sequences;
+}
+async function runLifeSimulation() {
+  draft.simulationBusy=true;draft.error='';render();await new Promise(resolve=>setTimeout(resolve,20));
+  const before=beforeLayoutItems(),after=draft.items.map(item=>({...item})),beforeIds=new Set(before.map(item=>item.id)),common=after.filter(item=>beforeIds.has(item.id)).map(item=>item.id),count=Math.max(100,Math.min(500,Math.round(Number(draft.simulationCount)||100))),seed=Math.round(Number(draft.simulationSeed)||1);
+  const sequences=generateLifeSequences(common,count,seed),beforeResult=simulateLifePaths(before,sequences,seed),afterResult=simulateLifePaths(after,sequences,seed);
+  const allIds=after.map(item=>item.id),allSequences=generateLifeSequences(allIds,count,seed),afterAll=simulateLifePaths(after,allSequences,seed);
+  if(allIds.length>common.length)afterResult.notes.push('공통 가구 비교와 별도로 새 가구를 포함한 결과는 성공 '+afterAll.success+'/'+count+'회, 평균 '+metricText(afterAll.averageDistance,'cm')+'입니다.');
+  draft.simulation={seed,count,before:beforeResult,after:afterResult,afterAll,baby:state.roomUse==='아기방'&&Number(state.age)<=24};draft.simulationBusy=false;draft.view='after';
+  const first=afterResult.paths[0]||beforeResult.paths[0];if(first){draft.route={path:first,distance:first.slice(1).reduce((sum,p,i)=>sum+Math.hypot((p[0]-first[i][0])*roomWidth(),(p[1]-first[i][1])*roomDepth()),0)};draft.compare={path:beforeResult.paths[0]||first,distance:beforeResult.averageDistance};state.startPoint=first[0];state.endPoint=first.at(-1);}
+  render();
+}
+
 function prepareAutomaticSimulation() {
+  if(draft.optimization) {
+    const o=draft.optimization;
+    draft.compare=routeBetween(o.beforeItems,o.start,o.end,String(Math.min(24,Math.max(10,Number(state.passage)||12))));
+    draft.route=routeBetween(draft.items,o.start,o.end,String(Math.min(24,Math.max(10,Number(state.passage)||12))));
+    state.startPoint=o.start;state.endPoint=o.end;draft.visitLabels=['동일 출발점','동일 목적지'];draft.error='';
+    return !!(draft.compare.path?.length&&draft.route.path?.length);
+  }
   const beforeItems=beforeLayoutItems(),order=furnitureVisitOrder(draft.items);
   const afterVisit=buildFurnitureVisitRoute(draft.items,findAnySafeRoute(draft.items),order);
   const beforeOrder=order.map(item=>beforeItems.find(candidate=>candidate.id===item.id)).filter(Boolean);
@@ -1325,31 +1517,8 @@ function prepareAutomaticSimulation() {
   if(!path?.length){state.startPoint=state.endPoint=null;return false;}
   state.startPoint=path[0];state.endPoint=path.at(-1);
   draft.visitLabels=result.labels||[];
-  draft.trajectorySource='route';draft.gruPath=null;draft.error='';
+  draft.error='';
   return true;
-}
-
-function sampleTrajectoryPoints(path,count=10) {
-  if(!path?.length)return [];
-  return Array.from({length:count},(_,i)=>{
-    const index=Math.round(i*(path.length-1)/Math.max(1,count-1));
-    return path[index].map(value=>Math.max(0,Math.min(1,Number(value))));
-  });
-}
-async function attachGRUPrediction() {
-  if(draft.gruStatus==='loading'||draft.trajectorySource==='gru')return;
-  const result=draft.view==='before'?draft.compare:draft.route,points=sampleTrajectoryPoints(result?.path);
-  if(points.length!==10)return;
-  draft.gruStatus='loading';render();
-  try {
-    const response=await fetch('/api/v1/trajectory/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points})});
-    const data=await response.json();
-    if(!response.ok)throw Error(data.error?.message||'GRU 예측 실패');
-    draft.gruLabel=data.label||'이동';draft.gruStatus='done';draft.trajectorySource='gru';
-  } catch(error) {
-    draft.gruStatus='error';draft.gruLabel='';draft.trajectorySource='route';
-  }
-  render();
 }
 
 const layoutMotion={progress:0,playing:false,frame:null,last:null,angle:0,stepPhase:0};
@@ -1366,7 +1535,7 @@ function walkerProfile() {
     child?{label:'어린이',scale:1.05,stride:1.12,wobble:.04,...activity}:
     {label:'성인',scale:1.35,stride:.92,wobble:.015,...activity};
 }
-function animationPath(result) {return draft.trajectorySource==='gru'&&draft.gruPath?.length?draft.gruPath:result.path;}
+function animationPath(result) {return result.path;}
 function pathPose(path,progress) {
   if(!path?.length) return null;
   if(path.length===1)return {point:path[0],angle:layoutMotion.angle};
@@ -1403,35 +1572,13 @@ function drawWalkingCharacter(ctx,[x,y],targetAngle,phase,moving,inTransit=false
   ctx.fillStyle='#513943';ctx.beginPath();ctx.arc(headX-1.8,-11.5,.55,0,Math.PI*2);ctx.arc(headX+1.8,-11.5,.55,0,Math.PI*2);ctx.fill();
   ctx.restore();
 }
-function layoutPathIsSafe(points,items) {
-  if(!Array.isArray(points)||points.length<2) return false;
-  const safePoint=([x,y])=>Number.isFinite(x)&&Number.isFinite(y)&&roomCell(x,y)&&items.every(item=>{
-    const px=x*roomWidth(),py=y*roomDepth(),clearance=Math.max(8,Number(state.passage)/4);
-    return Math.hypot(Math.max(0,Math.abs(px-item.x*roomWidth())-item.w/2),Math.max(0,Math.abs(py-item.y*roomDepth())-item.d/2))>clearance;
-  });
-  for(let i=0;i<points.length;i++) {
-    if(!Array.isArray(points[i])||points[i].length!==2||!safePoint(points[i])) return false;
-    if(!i)continue;
-    const a=points[i-1],b=points[i],samples=Math.max(2,Math.ceil(Math.hypot((b[0]-a[0])*roomWidth(),(b[1]-a[1])*roomDepth())/5));
-    for(let n=1;n<samples;n++)if(!safePoint([a[0]+(b[0]-a[0])*n/samples,a[1]+(b[1]-a[1])*n/samples]))return false;
-  }
-  return true;
-}
-function applyGRUTrajectory(payload) {
-  const points=payload?.path||payload?.points||payload?.coordinates;
-  const items=draft.view==='before'?beforeLayoutItems():draft.items;
-  if(!layoutPathIsSafe(points,items)) {draft.error='GRU 이동 좌표가 벽 또는 가구와 겹쳐 사용하지 않았어요.';draft.gruPath=null;draft.trajectorySource='route';render();return false;}
-  draft.gruPath=points.map(([x,y])=>[Number(x),Number(y)]);draft.trajectorySource='gru';draft.error='';stopLayoutMotion(true);render();return true;
-}
-globalThis.RoomAI={...(globalThis.RoomAI||{}),applyGRUTrajectory};
 function playLayout(restart=false) {
   let result=draft.view==='before'?draft.compare:draft.route;
   if(!result?.path&&prepareAutomaticSimulation())result=draft.view==='before'?draft.compare:draft.route;
   if(!result?.path)return;
-  attachGRUPrediction();
   if(restart||layoutMotion.progress>=1)stopLayoutMotion(true);
   layoutMotion.playing=true;layoutMotion.last=null;
-  const actor=walkerProfile(),duration=Math.max(1800,Math.min(9000,(result.distance||250)/(.48*actor.speed)*10));
+  const actor=walkerProfile(),duration=Math.max(900,Math.min(9000,(result.distance||250)/(.48*actor.speed)*10))/Math.max(.5,draft.playbackSpeed);
   const tick=now=>{
     if(!layoutMotion.playing)return;
     if(layoutMotion.last!==null){const dt=Math.min(50,now-layoutMotion.last);layoutMotion.progress=Math.min(1,layoutMotion.progress+dt/duration);layoutMotion.stepPhase+=dt*.013*actor.stride*actor.speed;}
@@ -1483,13 +1630,13 @@ render=function renderFlow() {
   ws.classList.toggle('has-plan',[2,4,5].includes(page));
   $('#progress').innerHTML=flowTabs.map((title,i)=>'<li '+(page===i+1?'aria-current="step"':'')+'><button data-flow-page="'+(i+1)+'" '+(i+1>page?'disabled':'')+'>'+title+'</button></li>').join('');
   $('#headline').innerHTML=page===0?'가구를 들이기 전,<br>생활을 먼저 그려보세요.':flowTitles[page];
-  $('#intro').textContent=['','방 용도와 필요한 가구를 골라 주세요.','도면 위에서 원하는 방의 바닥을 터치하세요.','배치해 볼 가구를 골라 주세요.','가구를 터치하거나 끌어서 배치하세요.','출발점과 목적지를 찍어 이동할 수 있는지 확인하세요.'][page];
+  $('#intro').textContent=['','방 용도와 필요한 가구를 골라 주세요.','도면 위에서 원하는 방의 바닥을 터치하세요.','배치해 볼 가구를 골라 주세요.','가구를 터치하거나 끌어서 배치하세요.','가구 사이의 반복 생활 동선과 불편 구간을 비교하세요.'][page];
   $('#controls').innerHTML=page===0?controls():flowControls();
   $('#visual').hidden=![0,2,4,5].includes(page);
   $('#visual').innerHTML=page===0?visual():page===2?
     '<figure class="plan-card"><div class="plan-canvas"><canvas width="960" height="660" data-uploaded-plan aria-label="방 선택 평면도"></canvas></div></figure><div class="legend"><span>파랑 · 벽</span><span>빨강 · 문</span><span>반투명 빨강 · 선택한 방</span></div>':
     page===4?'<figure class="plan-card"><figcaption>평면도 가구 배치</figcaption><div class="plan-canvas"><canvas width="960" height="660" id="layout-plan" aria-label="선택한 방의 가구 배치"></canvas></div></figure><div class="legend"><span>베이지 · 현재 가구</span><span>버건디 · 새 가구</span></div>':
-    page===5?'<figure class="plan-card"><div class="plan-canvas"><canvas width="960" height="660" id="layout-plan" aria-label="선택한 방의 가구 배치"></canvas></div></figure><div class="legend"><span>베이지 · 현재 가구</span><span>버건디 · 새 가구</span></div>':'';
+    page===5?'<figure class="plan-card"><div class="plan-canvas"><canvas width="960" height="660" id="layout-plan" aria-label="반복 생활 동선 분석 평면도"></canvas></div></figure><div class="legend"><span>연한~진한 버건디 · 시뮬레이션 이동 빈도</span><span>빨강 · 좁은 구간</span><span>주황 · 보호대 검토 모서리</span></div>':'';
   if(page===2){drawUploadedPlan();bindUploadedPlan();}
   if(page===4||page===5){paintLayout();bindLayout();}
 };
@@ -1505,20 +1652,23 @@ function updateFlowField(input) {
     paintLayout();
   }
   if(draft.page===5) {
-    $('[data-flow="run"]').disabled=!state.startPoint||!state.endPoint||!positive(state.passage);
-    $('#controls [role="status"]').textContent='동선을 다시 계산해 주세요.';
+    if(['age','activity'].includes(key)){draft.simulation=null;stopLayoutMotion(true);render();return;}
+    const run=$('[data-flow="run"]');if(run)run.disabled=!state.startPoint||!state.endPoint||!positive(state.passage);
+    const status=$('#controls [role="status"]');if(status)status.textContent='동선을 다시 계산해 주세요.';
     const replay=$('[data-flow="replay"]');
     if(replay) replay.hidden=true;
     paintLayout();
   }
 }
 document.addEventListener('input',event=>{
+  if(event.target.dataset.simulation){event.stopImmediatePropagation();const key=event.target.dataset.simulation;if(key==='count')draft.simulationCount=Math.max(100,Math.min(500,Number(event.target.value)||100));if(key==='seed')draft.simulationSeed=Math.round(Number(event.target.value)||1);return;}
   if(!event.target.matches('[data-field],[data-size]')) return;
   event.stopImmediatePropagation();
   updateFlowField(event.target);
 },true);
 document.addEventListener('change',async event=>{
   const input=event.target, key=input.dataset.field;
+  if(input.dataset.simulation==='speed'){event.stopImmediatePropagation();draft.playbackSpeed=Number(input.value)||1;return;}
   if(input.id==='photo-door-side'){
     event.stopImmediatePropagation();draft.doorSide=input.value;
     for(const item of draft.items) if(item.source==='yolo'&&!item.corrected) projectPhotoItem(item);
@@ -1602,6 +1752,8 @@ document.addEventListener('click',event=>{
   if(d.photoItem){draft.active=d.photoItem;draft.correction=true;render();return;}
   if(d.itemId){draft.active=d.itemId;draft.correction=false;render();return;}
   if(d.view){stopMotion(true);stopLayoutMotion(true);draft.view=d.view;draft.visitLabels=(d.view==='before'?draft.compare:draft.route)?.labels||[];render();return;}
+  if(d.layer){draft.simulationLayer=d.layer;render();return;}
+  if(d.overlay){if(d.overlay==='narrow')draft.showNarrow=!draft.showNarrow;if(d.overlay==='corners')draft.showCorners=!draft.showCorners;render();return;}
   if(d.endpoint){state.tapMode=d.endpoint;render();return;}
   switch(d.flow||d.action) {
     case 'search': flowGo(1);return;
@@ -1624,7 +1776,14 @@ document.addEventListener('click',event=>{
     }
     case 'walk-play': playLayout(false);return;
     case 'walk-pause': stopLayoutMotion(false);render();return;
-    case 'walk-replay': prepareAutomaticSimulation();replayLayout();return;
+    case 'walk-replay': replayLayout();return;
+    case 'run-life-simulation': runLifeSimulation();return;
+    case 'optimize-layout':
+      stopLayoutMotion(true);optimizeFurnitureLayout();render();return;
+    case 'apply-optimization':
+      if(draft.optimization){draft.optimization.applied=true;draft.optimizationMessage='';draft.photoMessage='AI 추천 배치를 적용했어요. 가구를 직접 끌어 추가로 수정할 수 있어요.';}
+      render();return;
+    case 'cancel-optimization': restoreOptimization();render();return;
     case 'add-products':
       for(const product of unplacedProducts()) addLayoutItem({name:product.group||product.kind,w:product.width,d:product.depth,source:'product',productId:product.id});
       break;
@@ -1644,7 +1803,6 @@ document.addEventListener('click',event=>{
       clearRoutes();
       draft.compare=findLayoutRoute(beforeLayoutItems());
       draft.route=findLayoutRoute(draft.items);
-      draft.trajectorySource='route';draft.gruPath=null;
       render();replayLayout();return;
     case 'replay': replayLayout();return;
     default: return;

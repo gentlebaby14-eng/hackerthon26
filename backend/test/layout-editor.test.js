@@ -82,13 +82,15 @@ test('연령과 활동성에 따라 아기·어린이·성인 걸음이 확실�
   assert.ok(run('walkerProfile().speed')<1);
 });
 
-test('GRU 좌표는 방 안과 가구 사이를 모두 통과할 때만 채택한다',()=>{
+test('AI 배치 추천은 새 가구를 방·가구·문 개폐 공간과 겹치지 않게 배치한다',()=>{
   const {run}=editor();
-  run("draft.items=[{id:'bed',w:60,d:60,x:.5,y:.5,source:'manual'}];draft.view='after'");
-  assert.equal(run("applyGRUTrajectory({points:[[.1,.1],[.2,.1],[.3,.1]]})"),true);
-  assert.equal(run('draft.trajectorySource'),'gru');
-  assert.equal(run("applyGRUTrajectory({points:[[.1,.1],[.5,.5],[.9,.9]]})"),false);
-  assert.equal(run('draft.trajectorySource'),'route');
+  run("draft.doorSide='bottom';draft.items=[{id:'old',name:'침대',w:80,d:120,x:.25,y:.35,source:'yolo'},{id:'new',name:'수납장',w:60,d:40,x:.55,y:.55,source:'manual'}];draft.active='new'");
+  assert.equal(run('optimizeFurnitureLayout()'),true);
+  assert.equal(run('draft.optimization.targetId'),'new');
+  assert.equal(run('itemFits(selectedItem())'),true);
+  assert.equal(run("overlaps(selectedItem(),draft.items.find(item=>item.id==='old'))"),false);
+  assert.equal(run('intersectsDoorSwing(selectedItem())'),false);
+  assert.ok(run('draft.optimization.recommended.route.path.length')>1);
 });
 
 test('시뮬레이션 진입 시 방문 쪽 출발점과 안전한 목적지 경로를 자동 준비한다',()=>{
@@ -97,7 +99,7 @@ test('시뮬레이션 진입 시 방문 쪽 출발점과 안전한 목적지 경
   assert.equal(run('prepareAutomaticSimulation()'),true);
   assert.ok(run('state.startPoint[1]')>0.5);
   assert.ok(run('draft.route.path.length')>1);
-  assert.equal(run('layoutPathIsSafe(draft.route.path,[])'),true);
+  assert.equal(run('draft.route.path.every(point=>roomCell(...point))'),true);
 });
 
 test('새 가구 없이 기존 가구를 옮겨도 최초 배치와 변경 배치를 분리한다',()=>{
@@ -108,13 +110,13 @@ test('새 가구 없이 기존 가구를 옮겨도 최초 배치와 변경 배�
   assert.equal(run('draft.items[0].x'),.7);
 });
 
-test('조건 화면에 추가할 가구 해당없음과 단순한 기존·새 배치 비교를 제공한다',()=>{
+test('조건 화면에 추가할 가구 해당없음과 기존·변경 배치 비교를 제공한다',()=>{
   const {run}=editor();
   run('draft.page=1');
   assert.match(run('flowControls()'),/해당없음/);
   run("draft.page=5;draft.route={path:[[.1,.1],[.2,.2]],distance:10};draft.compare=draft.route");
   const controls=run('flowControls()');
-  assert.match(controls,/기존 배치/);assert.match(controls,/새 배치/);
+  assert.match(controls,/기존 배치/);assert.match(controls,/변경 배치/);assert.match(controls,/A\* 다중 생활 동선/);
   assert.doesNotMatch(controls,/출발점 찍기|목적지 찍기|필요한 통로 폭/);
 });
 
@@ -196,7 +198,7 @@ test('선택한 가구의 회전·삭제 버튼은 동선 버튼 바로 위 하�
   run("draft.page=4;draft.items=[{id:'desk',name:'책상',w:100,d:55,x:.5,y:.5,source:'yolo'}];draft.active='desk'");
   const controls=run('flowControls()');
   assert.match(controls,/layout-bottom-actions/);assert.match(controls,/가구 90° 회전/);assert.match(controls,/가구 삭제/);
-  assert.ok(controls.indexOf('layout-bottom-actions')<controls.indexOf('동선 시뮬레이션'));
+  assert.ok(controls.indexOf('layout-bottom-actions')<controls.indexOf('동선 비교'));
 });
 
 test('생활 동선은 문에서 시작해 침대·의자·침대·책상 순으로 가구 사이를 방문한다',()=>{
@@ -205,4 +207,20 @@ test('생활 동선은 문에서 시작해 침대·의자·침대·책상 순으
   assert.equal(run('prepareAutomaticSimulation()'),true);
   assert.equal(run("draft.visitLabels.slice(0,5).join('>')"),'문>침대>의자>침대>책상');
   assert.ok(run('draft.route.path.length')>5);
+});
+
+test('무작위 생활 동선은 같은 시드에서 같은 목적지 순서를 재현한다',()=>{
+  const {run}=editor();
+  run("state.activity='보통';const seqA=generateLifeSequences(['a','b','c'],20,731);const seqB=generateLifeSequences(['a','b','c'],20,731);const seqC=generateLifeSequences(['a','b','c'],20,732)");
+  assert.equal(run('JSON.stringify(seqA)'),run('JSON.stringify(seqB)'));
+  assert.notEqual(run('JSON.stringify(seqA)'),run('JSON.stringify(seqC)'));
+});
+
+test('반복 A* 결과의 히트맵과 모서리 접근 값은 계산된 경로에서만 누적된다',()=>{
+  const {run}=editor();
+  run("state.roomUse='아기방';state.age='18';draft.doorSide='bottom';const babyItems=[{id:'cab',name:'장난감 수납장',w:50,d:40,x:.3,y:.3,source:'yolo'},{id:'desk',name:'책상',w:80,d:45,x:.7,y:.35,source:'yolo'}];const seq=generateLifeSequences(['cab','desk'],8,22);const sim=simulateLifePaths(babyItems,seq,22)");
+  assert.equal(run('sim.runs'),8);
+  assert.equal(run('sim.heat.reduce((a,b)=>a+b,0)'),run('sim.paths.flat().length'));
+  assert.ok(run('sim.success+sim.failures')===8);
+  assert.equal(run('sim.corners.every(c=>c.count>0&&Number.isFinite(c.min))'),true);
 });

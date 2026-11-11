@@ -27,11 +27,10 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `POST /api/v1/chat` | 키워드별 고정 상담 답변 |
 | `GET /api/v1/model/status` | 벽·문·창문 4-class U-Net 가중치·클래스 호환 상태 |
 | `GET /api/v1/walls/status` | 벽 전용 U-Net 가중치 상태 |
+| `GET /api/v1/furniture/status` | YOLO-World 가중치 포함 여부 확인 |
 | `POST /api/v1/walls/analyze` | 업로드 도면의 벽/벽 아님 마스크 추론 |
 | `POST /api/v1/floorplans/analyze` | `{"image":"data:image/png;base64,..."}`를 U-Net으로 벽·문·창문 분할 |
 | `POST /api/v1/routes/compare` | 벽 마스크와 현관·목적지·가구 전후 위치로 경로 비교 |
-| `GET /api/v1/trajectory/status` | GRU 체크포인트 준비 여부 |
-| `POST /api/v1/trajectory/predict` | 최근 10개 정규화 좌표로 다음 9방향 중 하나 예측 |
 
 시뮬레이션 요청 예시:
 
@@ -50,11 +49,30 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 
 새 경로 API는 U-Net 출력의 128×128 `mask`(각 행이 `0`/`1` 문자열), `start`/`end` 좌표(이미지 크기에 대한 0~1 비율), `roomWidthCm`/`roomHeightCm`/`passageCm`, `furniture: {widthCm, depthCm, before:[x,y], after:[x,y]}`를 받습니다. 벽과 가구를 장애물로 놓고 필요한 통로 폭의 절반만큼 여유를 두어 경로를 탐색합니다. 결과의 `before`/`after`에 이동 가능 여부, 경로 좌표, 이동 거리, 대략적인 최소 통로 폭을 담습니다. 선택한 가구 한 개의 전후 배치를 비교합니다.
 
-`layoutItems` 배열을 추가로 보내면 각 항목의 `box: {x,y,width,height}`를 두 배치 모두의 고정 장애물로 반영합니다. 도면 위에서 드래그해 위치를 보정한 YOLO 가구를 전달하는 용도입니다. 경로 탐색은 격자 A*입니다. `frontend/floorplan.html`의 아이 동선은 이 A* 결과가 이동 가능할 때만 시작하고, GRU가 예측한 다음 방향을 매 칸 다시 요청합니다. GRU는 도착 경로를 보장하지 않습니다.
+`layoutItems` 배열을 추가로 보내면 각 항목의 `box: {x,y,width,height}`를 두 배치 모두의 고정 장애물로 반영합니다. 경로 탐색은 격자 A*입니다. 생활 동선 화면은 같은 시드로 가구 주변의 접근 가능한 지점을 여러 번 방문하고, 실제 경로의 방문 횟수로 히트맵을 계산합니다.
 
-GRU 체크포인트 `ai/checkpoints/child-trajectory-gru.pt`가 없으면 상태 API는 `ready:false`, 예측 API는 `503 TRAJECTORY_MODEL_NOT_READY`를 반환합니다. 저장소의 체크포인트는 공식 THÖR 성인 동선 TSV 4개로 학습했습니다. 학습·평가 명령은 `ai/trajectory/README.md`를 참고하세요. 아이 행동의 실제 안전성 검증으로 해석하면 안 됩니다.
+## GitHub에서 내려받은 뒤 YOLO 실행
 
-Windows에서 YOLO-World 가구 인식을 쓰려면 같은 `ai/.venv`에 `pip install -r ai/requirements.txt`를 실행하고, CLIP도 `pip install https://github.com/ultralytics/CLIP/archive/refs/heads/main.zip`로 설치해야 합니다. 모델 파일 `yolov8s-world.pt`는 저장소 루트에 둡니다. 첫 실행에서 CLIP 가중치를 내려받으므로 네트워크가 필요할 수 있습니다. YOLO 사진의 bbox를 도면 좌표로 자동 변환하지 않으며, 화면에서 방 중앙의 임시 가구 상자를 드래그해 위치를 보정합니다.
+5GB 학습 데이터는 런타임에 필요하지 않습니다. 추론용 `yolov8s-world.pt`(약 26MB)는 이 저장소에 포함되어 있습니다. Python 가상환경은 각 컴퓨터에서 만들어야 하며 Git에 포함하지 않습니다. 저장소 루트에서 다음을 실행하세요. Python 3.10 이상과 Git이 필요합니다.
+
+macOS/Linux:
+
+```sh
+python3 -m venv ai/.venv
+ai/.venv/bin/python -m pip install -r ai/requirements.txt
+cd backend && npm start
+```
+
+Windows PowerShell:
+
+```powershell
+py -3 -m venv ai/.venv
+ai/.venv/Scripts/python.exe -m pip install -r ai/requirements.txt
+cd backend
+npm start
+```
+
+`ai/requirements.txt`에 YOLO-World가 사용하는 Ultralytics CLIP도 포함했습니다. 최초 가구 인식 시 CLIP 텍스트 인코더 가중치를 내려받아야 하므로 인터넷 연결이 필요할 수 있습니다. `GET /api/v1/furniture/status`로 저장소의 YOLO 파일 유무를 확인할 수 있고, Python 패키지 누락 시 API가 설치 명령을 안내합니다. 서버를 켠 상태에서 방 사진을 올려야 인식 결과가 나옵니다.
 
 U-Net 가중치는 `ai/checkpoints/walls-doors-windows.pt`에 있어야 합니다. 같은 이름의 JSON 모델 카드에
 `background, wall, door, window` 네 클래스와 출력 채널 4개가 확인되어야 준비 완료가 됩니다. 기존 `walls.pt`는 거절합니다.

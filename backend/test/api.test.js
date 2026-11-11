@@ -162,12 +162,9 @@ test('RoomAI 스타일과 벽 전용 U-Net 상태를 제공한다', async () => 
   assert.equal(invalid.data.error.code, 'INVALID_IMAGE');
 });
 
-test('GRU 체크포인트가 없으면 예측을 시작하지 않는다', async () => {
+test('제거된 GRU API는 더 이상 노출하지 않는다', async () => {
   const status = await request('/api/v1/trajectory/status');
-  assert.equal(status.status, 200);
-  if (!status.data.ready) {
-    const result = await request('/api/v1/trajectory/predict', 'POST', { points: Array(10).fill([.5, .5]) });
-    assert.equal(result.status, 503);
-    assert.equal(result.data.error.code, 'TRAJECTORY_MODEL_NOT_READY');
-  }
+  assert.equal(status.status, 404);
+  const result = await request('/api/v1/trajectory/predict', 'POST', { points: Array(10).fill([.5, .5]) });
+  assert.equal(result.status, 404);
 });
