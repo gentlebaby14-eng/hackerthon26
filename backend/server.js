@@ -8,6 +8,7 @@ import { defaultState, plan, products } from './data.js';
 import { ApiError, chat, searchProducts, simulate } from './logic.js';
 import { compareRoutes } from './routes.js';
 import { analyzeFloorplan, modelStatus } from './model-service.js';
+import { recommendRealProducts } from './product-recommendation.js';
 
 const maxBodyBytes = 32 * 1024;
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend');
@@ -89,6 +90,10 @@ export function createApp() {
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/products') {
         return json(res, 200, searchProducts(Object.fromEntries(url.searchParams)));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/products/recommend') {
+        const body = await readJson(req);
+        return json(res, 200, await recommendRealProducts(body));
       }
       if (req.method === 'GET' && url.pathname.startsWith('/api/v1/products/')) {
         const id = decodeURIComponent(url.pathname.slice('/api/v1/products/'.length));
