@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 from data import training_dataset
 from model import UNet
+from synthetic_data import SyntheticFloorplans
 
 
 def loss_fn(logits, target):
@@ -46,7 +47,8 @@ def validate(model, loader, device, threshold):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data-root', required=True, help='cubicasa5k/ 폴더')
+    parser.add_argument('--data-root', help='cubicasa5k/ 폴더')
+    parser.add_argument('--synthetic-samples', type=int, help='재현 가능한 합성 평면도 train 개수')
     parser.add_argument('--out', default='ai/checkpoints/walls.pt')
     parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--batch-size', type=int, default=4)
@@ -61,8 +63,18 @@ def main():
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    train_set = training_dataset(args.data_root, 'train', args.size, args.limit, augment=True)
-    val_set = training_dataset(args.data_root, 'val', args.size, args.limit)
+    if bool(args.data_root) == bool(args.synthetic_samples):
+        parser.error('--data-root 또는 --synthetic-samples 중 하나만 지정하세요')
+    if args.synthetic_samples:
+        if args.synthetic_samples < 100:
+            parser.error('--synthetic-samples는 100 이상이어야 합니다')
+        train_set = SyntheticFloorplans('train', args.size, args.synthetic_samples, args.seed, True)
+        val_set = SyntheticFloorplans('val', args.size, args.synthetic_samples, args.seed)
+        dataset_name = f'SyntheticFloorplans-v1 ({args.synthetic_samples} train)'
+    else:
+        train_set = training_dataset(args.data_root, 'train', args.size, args.limit, augment=True)
+        val_set = training_dataset(args.data_root, 'val', args.size, args.limit)
+        dataset_name = 'CubiCasa5K official train/val'
     if not len(train_set) or not len(val_set):
         parser.error('train/val 데이터가 비어 있습니다')
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=0)
@@ -88,12 +100,21 @@ def main():
         print(json.dumps({'epoch': epoch, 'train_loss': train_loss / len(train_set), 'val': metrics}, ensure_ascii=False), flush=True)
         if metrics['iou'] > best_iou:
             best_iou = metrics['iou']
+            model_card = {
+                'model': 'U-Net', 'architecture': 'U-Net binary segmentation',
+                'dataset': dataset_name, 'epoch': epoch, 'validation': metrics,
+                'train_samples': len(train_set), 'val_samples': len(val_set),
+                'input_size': args.size, 'seed': args.seed,
+            }
             torch.save({
                 'model': model.state_dict(), 'base_channels': args.base_channels,
                 'size': args.size, 'threshold': 0.5, 'epoch': epoch,
                 'val_iou': best_iou, 'seed': args.seed,
-                'dataset': 'CubiCasa5K official train/val', 'limited': args.limit is not None,
+                'dataset': dataset_name, 'limited': args.limit is not None,
+                'architecture': 'U-Net binary segmentation',
+                'train_samples': len(train_set), 'val_samples': len(val_set),
             }, output)
+            output.with_suffix('.json').write_text(json.dumps(model_card, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f'best_val_iou={best_iou:.4f}; checkpoint={output}', flush=True)
 
 

@@ -1,0 +1,10 @@
+{
+  "checkpoint_epoch": 10,
+  "limited_training": false,
+  "synthetic_test": {
+    "samples": 100,
+    "loss": 0.9195842981338501,
+    "iou": 0.986308271653032,
+    "dice": 0.9931069469213993
+  }
+}

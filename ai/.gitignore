@@ -1,4 +1,7 @@
-checkpoints/
+checkpoints/*
+!checkpoints/walls.pt
+!checkpoints/walls.json
+!checkpoints/evaluation.json
 data/
 .venv/
 __pycache__/

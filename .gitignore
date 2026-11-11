@@ -1,4 +1,8 @@
-# Local secrets
+# 실제 API 키는 로컬에만 보관합니다.
 .env
 .env.*
 !.env.example
+
+# macOS 메타데이터
+.DS_Store
+**/.DS_Store

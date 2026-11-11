@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -9,10 +9,18 @@ import { ApiError } from './logic.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const checkpoint = path.resolve(process.env.MODEL_CHECKPOINT ?? path.join(root, 'ai', 'checkpoints', 'walls.pt'));
 const script = path.join(root, 'ai', 'infer.py');
+const projectPython = path.join(root, 'ai', '.venv', 'bin', 'python');
+const modelCardPath = checkpoint.replace(/\.pt$/, '.json');
+const evaluationPath = path.join(root, 'ai', 'checkpoints', 'evaluation.json');
+
+function readJsonFile(filename) {
+  try { return JSON.parse(readFileSync(filename, 'utf8')); } catch { return null; }
+}
 
 export function modelStatus() {
-  return { ready: existsSync(checkpoint), model: 'U-Net',
-    message: existsSync(checkpoint) ? '학습된 벽 모델을 사용할 수 있어요.' : '학습된 가중치가 없어요. ai/README.md의 학습 절차를 진행해 주세요.' };
+  const ready = existsSync(checkpoint);
+  return { ready, model: 'U-Net', modelCard: readJsonFile(modelCardPath), evaluation: readJsonFile(evaluationPath),
+    message: ready ? '학습·검증된 벽 분할 모델을 사용할 수 있어요.' : '학습된 가중치가 없어요. ai/README.md의 학습 절차를 진행해 주세요.' };
 }
 
 export async function analyzeFloorplan(imageDataUrl) {
@@ -27,7 +35,7 @@ export async function analyzeFloorplan(imageDataUrl) {
   try {
     await writeFile(imagePath, bytes);
     const result = await new Promise((resolve, reject) => {
-      const child = spawn(process.env.PYTHON ?? 'python', [script, '--image', imagePath, '--checkpoint', checkpoint],
+      const child = spawn(process.env.PYTHON ?? (existsSync(projectPython) ? projectPython : 'python3'), [script, '--image', imagePath, '--checkpoint', checkpoint],
         { cwd: root, windowsHide: true });
       let stdout = '', stderr = '';
       const timer = setTimeout(() => child.kill(), 120_000);

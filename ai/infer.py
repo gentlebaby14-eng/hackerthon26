@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import time
 
 import numpy as np
 import torch
@@ -28,16 +29,25 @@ def main():
         source.load()
         image = source.convert('RGB').resize((checkpoint['size'], checkpoint['size']), Image.Resampling.BILINEAR)
     tensor = torch.from_numpy(np.asarray(image, dtype=np.float32).copy()).permute(2, 0, 1)[None] / 255.0
+    started = time.perf_counter()
     with torch.no_grad():
         probability = model(tensor).sigmoid()
         walls = (probability >= checkpoint['threshold']).float()
         # Max pool은 경로 계산용 격자에서 얇은 벽이 사라지는 일을 줄인다.
         grid = F.adaptive_max_pool2d(walls, (args.grid_size, args.grid_size))[0, 0].numpy().astype(bool)
     rows = [''.join('1' if cell else '0' for cell in row) for row in grid]
+    confidence = torch.where(probability >= .5, probability, 1 - probability).mean().item()
     print(json.dumps({'width': args.grid_size, 'height': args.grid_size,
                       'mask': rows, 'threshold': checkpoint['threshold'],
                       'model': 'U-Net', 'trainedEpoch': checkpoint['epoch'],
-                      'validationIoU': checkpoint['val_iou']}, ensure_ascii=False))
+                      'validationIoU': checkpoint['val_iou'],
+                      'dataset': checkpoint.get('dataset', 'unknown'),
+                      'architecture': checkpoint.get('architecture', 'U-Net'),
+                      'trainSamples': checkpoint.get('train_samples'),
+                      'valSamples': checkpoint.get('val_samples'),
+                      'meanConfidence': confidence,
+                      'wallRatio': walls.mean().item(),
+                      'inferenceMs': round((time.perf_counter() - started) * 1000, 1)}, ensure_ascii=False))
 
 
 if __name__ == '__main__':

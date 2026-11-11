@@ -1,0 +1,15 @@
+{
+  "model": "U-Net",
+  "architecture": "U-Net binary segmentation",
+  "dataset": "SyntheticFloorplans-v1 (300 train)",
+  "epoch": 10,
+  "validation": {
+    "loss": 0.9324061751365662,
+    "iou": 0.9853063336647011,
+    "dice": 0.9925987913874351
+  },
+  "train_samples": 300,
+  "val_samples": 80,
+  "input_size": 128,
+  "seed": 42
+}

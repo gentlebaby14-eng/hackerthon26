@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from data import training_dataset
 from model import UNet
 from train import validate
+from synthetic_data import SyntheticFloorplans
 
 
 def load_checkpoint(path):
@@ -46,9 +47,11 @@ def main():
     parser.add_argument('--image', help='한국 도면 등 별도 이미지')
     parser.add_argument('--mask', help='해당 이미지의 수작업 정답 마스크')
     parser.add_argument('--batch-size', type=int, default=4)
+    parser.add_argument('--synthetic-test', action='store_true', help='체크포인트와 분리된 합성 test 평가')
+    parser.add_argument('--out', help='평가 결과 JSON 저장 경로')
     args = parser.parse_args()
-    if bool(args.image) != bool(args.mask) or not (args.data_root or args.image):
-        parser.error('--data-root 또는 --image와 --mask를 함께 입력하세요')
+    if bool(args.image) != bool(args.mask) or not (args.data_root or args.image or args.synthetic_test):
+        parser.error('--data-root, --synthetic-test 또는 --image와 --mask를 함께 입력하세요')
     model, checkpoint = load_checkpoint(Path(args.checkpoint))
     results = {'checkpoint_epoch': checkpoint['epoch'], 'limited_training': checkpoint.get('limited', False)}
     if args.data_root:
@@ -57,7 +60,15 @@ def main():
         results['cubicasa_test'] = {'samples': len(dataset), **validate(model, loader, 'cpu', checkpoint['threshold'])}
     if args.image:
         results['external_pair'] = evaluate_pair(model, checkpoint, args.image, args.mask)
-    print(json.dumps(results, ensure_ascii=False, indent=2))
+    if args.synthetic_test:
+        samples = checkpoint.get('train_samples', 600)
+        dataset = SyntheticFloorplans('test', checkpoint['size'], samples, checkpoint.get('seed', 42))
+        loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
+        results['synthetic_test'] = {'samples': len(dataset), **validate(model, loader, 'cpu', checkpoint['threshold'])}
+    rendered = json.dumps(results, ensure_ascii=False, indent=2)
+    if args.out:
+        Path(args.out).write_text(rendered, encoding='utf-8')
+    print(rendered)
 
 
 if __name__ == '__main__':

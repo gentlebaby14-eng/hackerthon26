@@ -16,6 +16,18 @@ python ai/prepare_pair.py --data-root ai/data/cubicasa5k --split train --index 0
 
 ## 학습 및 평가
 
+현재 데모 체크포인트는 저작권 문제 없이 재현 가능한 합성 평면도 300장으로 학습하고,
+검증 80장과 학습에 한 번도 쓰지 않은 test 100장으로 분리 평가합니다. 벽 두께·방 수·문 위치·가구 기호·노이즈를 seed마다 바꿉니다.
+
+```bash
+ai/.venv/bin/python ai/train.py --synthetic-samples 300 --epochs 10 --size 128 --base-channels 4 --batch-size 8 --out ai/checkpoints/walls.pt
+ai/.venv/bin/python ai/evaluate.py --checkpoint ai/checkpoints/walls.pt --synthetic-test --batch-size 8 --out ai/checkpoints/evaluation.json
+```
+
+2026-11-11 생성 체크포인트의 결과는 validation IoU 0.9853 / Dice 0.9926,
+미사용 test IoU 0.9863 / Dice 0.9931입니다. 이는 합성 분포 안에서의 성능이며 실제 아파트 도면 성능으로 과장해서는 안 됩니다.
+화면에는 업로드·정규화 → U-Net 추론 → 벽 마스크 → 동선 탐색 순서와 실제 추론 수치가 표시됩니다.
+
 Python 3.12와 PyTorch를 권장합니다. `python --version`으로 3.12인지 확인한 뒤 저장소 루트에서 실행합니다.
 
 ```powershell
