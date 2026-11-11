@@ -1,4 +1,4 @@
-# Roommate 시연 백엔드
+# RoomAI 시연 백엔드
 
 기존 상품 검색·고정 답변 챗봇·시연 배치 API와 새 **도면 벽 추론·경로 비교 API**를 제공하는 Node.js 20+ 서버입니다. 화면은 `frontend/`에 있습니다. 외부 GPT·쇼핑·지도 API는 호출하지 않습니다.
 
@@ -26,6 +26,8 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `POST /api/v1/simulations` | 현재·추천 배치의 경로, 위험 구간, 최소 통로 폭 비교 |
 | `POST /api/v1/chat` | 키워드별 고정 상담 답변 |
 | `GET /api/v1/model/status` | 벽·문·창문 4-class U-Net 가중치·클래스 호환 상태 |
+| `GET /api/v1/walls/status` | 벽 전용 U-Net 가중치 상태 |
+| `POST /api/v1/walls/analyze` | 업로드 도면의 벽/벽 아님 마스크 추론 |
 | `POST /api/v1/floorplans/analyze` | `{"image":"data:image/png;base64,..."}`를 U-Net으로 벽·문·창문 분할 |
 | `POST /api/v1/routes/compare` | 벽 마스크와 현관·목적지·가구 전후 위치로 경로 비교 |
 
@@ -50,6 +52,8 @@ U-Net 가중치는 `ai/checkpoints/walls-doors-windows.pt`에 있어야 합니�
 `background, wall, door, window` 네 클래스와 출력 채널 4개가 확인되어야 준비 완료가 됩니다. 기존 `walls.pt`는 거절합니다.
 별도 가상환경을 쓴다면 서버 시작 전 `PYTHON` 환경 변수에 Python 실행 파일을 지정하세요. 가중치가 없으면
 분석 API는 `503 MODEL_NOT_READY`를 반환합니다. 공식 벽 정답 마스크 화면 체험은 학습 없이 가능하며 AI 예측으로 표시하지 않습니다.
+
+RoomAI 배치 화면은 별도의 벽 전용 `ai/checkpoints/walls.pt`와 `walls.json`을 사용합니다. Windows에서 `ai/.venv`에 Python 환경을 만든 경우 서버가 이를 자동으로 사용합니다. 필요한 패키지는 `ai/requirements.txt`를 참고하세요. 벽 추론과 경로 계산은 서버 실행 중에만 동작하며, 모델은 합성 도면 학습본이므로 실제 아파트 도면에 적용할 때 결과를 눈으로 확인해야 합니다.
 
 프론트엔드는 상품 추천 API를 호출하지 않고 `frontend/index.html`의 고정 상품 9개와 `frontend/assets/products/`의 사진을 보여줍니다. 판매처 이름과 표시 가격은 2026-11-11 확인한 값입니다. 가로·세로는 배치 시연용 예시 값입니다. 기존 Gemini 추천 구현과 프롬프트는 재개를 위해 코드에 보관했지만 서버 경로에서 호출하지 않습니다.
 

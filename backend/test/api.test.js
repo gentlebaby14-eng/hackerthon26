@@ -123,7 +123,7 @@ test('원본 화면과 새 도면 화면을 백엔드에서 연다', async () =>
   for (const page of ['/', '/floorplan.html']) {
     const response = await fetch(base + page);
     assert.equal(response.status, 200);
-    assert.match(await response.text(), page === '/' ? /<title>루마이/ : /Roommate/i);
+    assert.match(await response.text(), page === '/' ? /<title>RoomAI/ : /Roommate/i);
   }
 });
 
@@ -143,4 +143,18 @@ test('저장된 상품 사진을 서버에서도 제공한다', async () => {
     assert.equal(response.headers.get('content-type'), 'image/webp');
     assert.ok((await response.arrayBuffer()).byteLength > 1000);
   }
+});
+
+test('RoomAI 스타일과 벽 전용 U-Net 상태를 제공한다', async () => {
+  const style = await fetch(base + '/roomai.css');
+  assert.equal(style.status, 200);
+  assert.match(style.headers.get('content-type'), /text\/css/);
+  assert.match(await style.text(), /category-tabs/);
+  const status = await request('/api/v1/walls/status');
+  assert.equal(status.status, 200);
+  assert.equal(status.data.model, 'U-Net wall segmentation');
+  assert.equal(status.data.ready, true);
+  const invalid = await request('/api/v1/walls/analyze', 'POST', { image: 'invalid' });
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.data.error.code, 'INVALID_IMAGE');
 });

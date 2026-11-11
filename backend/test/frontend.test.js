@@ -78,6 +78,6 @@ test('앱을 열면 첫 화면의 소개와 가구 찾기 버튼을 렌더링한
   vm.runInContext(script, context);
   assert.match(nodes.get('#controls').innerHTML, /가구 찾아보기/);
   assert.match(nodes.get('#visual').innerHTML, /editorial/);
-  assert.match(nodes.get('#headline').textContent, /가구/);
+  assert.match(nodes.get('#headline').innerHTML, /가구를 들이기 전,<br>생활을 먼저 그려보세요/);
   assert.equal(nodes.get('.shell').dataset.intro, true);
 });

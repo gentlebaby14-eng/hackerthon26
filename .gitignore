@@ -6,3 +6,5 @@
 # macOS 메타데이터
 .DS_Store
 **/.DS_Store
+ai/.venv/
+work-tmp/

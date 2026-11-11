@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { defaultState, plan, products } from './data.js';
 import { ApiError, chat, searchProducts, simulate } from './logic.js';
 import { compareRoutes } from './routes.js';
-import { analyzeFloorplan, modelStatus } from './model-service.js';
+import { analyzeFloorplan, analyzeWalls, modelStatus, wallModelStatus } from './model-service.js';
 
 const maxBodyBytes = 32 * 1024;
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend');
@@ -57,6 +57,11 @@ export function createApp() {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         return res.end(html);
       }
+      if (req.method === 'GET' && url.pathname === '/roomai.css') {
+        const css = await readFile(path.join(frontendDir, 'roomai.css'));
+        res.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-store' });
+        return res.end(css);
+      }
       if (req.method === 'GET' && ['/assets/baby-floorplan.png', '/assets/bedroom-floorplan.png'].includes(url.pathname)) {
         const filename = path.basename(url.pathname);
         const png = await readFile(path.join(frontendDir, 'assets', filename));
@@ -84,6 +89,9 @@ export function createApp() {
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/model/status') {
         return json(res, 200, modelStatus());
+      }
+      if (req.method === 'GET' && url.pathname === '/api/v1/walls/status') {
+        return json(res, 200, wallModelStatus());
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/demo') {
         return json(res, 200, {
@@ -117,6 +125,10 @@ export function createApp() {
       if (req.method === 'POST' && url.pathname === '/api/v1/floorplans/analyze') {
         const body = await readJson(req, 12 * 1024 * 1024);
         return json(res, 200, await analyzeFloorplan(body.image));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/walls/analyze') {
+        const body = await readJson(req, 12 * 1024 * 1024);
+        return json(res, 200, await analyzeWalls(body.image));
       }
       if (req.method === 'POST' && url.pathname === '/api/v1/routes/compare') {
         const body = await readJson(req, 512 * 1024);
