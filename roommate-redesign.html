@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROOMMATE AI — 내 방 동선 미리보기</title>
+<style>
+:root{color-scheme:light;--bg:#f5f5ef;--panel:#fff;--ink:#182b23;--muted:#55675c;--line:#dce4db;--green:#22543d;--soft:#edf4e9;--red:#ab392e;--warn:#fbede9;--radius:22px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,"Noto Sans CJK KR","Apple SD Gothic Neo",sans-serif;word-break:keep-all}
+button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.5}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #729769;outline-offset:3px}
+[hidden]{display:none!important}
+.shell{max-width:1248px;margin:auto;padding:0 38px 38px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;height:82px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.04em}
+.mark{width:34px;height:34px;border-radius:10px;background:var(--green);color:white;display:grid;place-items:center;font-size:20px}
+.demo{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:5px 10px;border-radius:99px;white-space:nowrap}
+nav ol{display:flex;gap:8px;margin:21px 0 0;padding:0;list-style:none}
+nav li{flex:1;min-width:0;padding-top:8px;border-top:3px solid var(--line);color:var(--muted);font-size:12px;text-align:center}
+nav li[aria-current]{border-color:var(--green);color:var(--green);font-weight:800}
+nav li.done{border-color:#a6b9a1}
+.hero{margin:34px 0 26px;max-width:760px}
+h1{font-size:clamp(30px,4.4vw,53px);letter-spacing:-.065em;line-height:1.19;margin:0 0 11px}
+p{margin:0}.hero p,.muted{color:var(--muted)}
+.workspace{display:grid;grid-template-columns:minmax(310px,.83fr) minmax(0,1.17fr);gap:20px;align-items:start}
+.panel,.visual{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);min-width:0}
+.panel{padding:25px}.visual{padding:19px;background:#eaf0e6}
+.visual-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.visual-top strong{font-size:14px}.visual-top span{font-size:12px;color:var(--muted)}
+h2{font-size:20px;line-height:1.35;letter-spacing:-.04em;margin:0 0 15px}
+fieldset{border:0;margin:0 0 17px;padding:0;min-width:0}
+legend,.field>span:first-child{font-weight:720;font-size:13px;margin-bottom:7px}
+.options,.actions,.compare-tabs{display:flex;gap:7px;flex-wrap:wrap}
+button{border:1px solid var(--line);color:var(--ink);background:#fff;border-radius:11px;min-height:42px;padding:8px 12px;font-weight:680}
+button:hover:enabled{border-color:#73916d}
+.chip[aria-pressed=true],.compare-tabs button[aria-pressed=true]{background:var(--soft);border-color:#7c9a77;color:var(--green)}
+.inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.field{display:grid;min-width:0;margin-bottom:12px}
+.entry{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:11px;min-width:0;background:#fff}
+.entry:focus-within{outline:2px solid #729769}
+.entry input{width:100%;min-width:0;border:0;background:none;padding:10px;color:inherit;outline:0}
+.entry small{flex:none;padding-right:9px;color:var(--muted);font-size:11px}
+textarea{width:100%;min-height:80px;padding:11px;resize:vertical;border:1px solid var(--line);border-radius:11px;color:var(--ink)}
+details{margin:7px 0 14px;font-size:13px}summary{cursor:pointer;color:var(--muted);margin-bottom:8px}
+.help{font-size:12px;color:var(--muted);margin-top:5px}
+.footer{margin-top:19px;display:flex;gap:8px}
+.primary{flex:1;background:var(--green);border-color:var(--green);color:white;min-height:47px;display:flex;align-items:center;justify-content:space-between;text-align:left;padding:9px 14px}
+.primary:hover:enabled{background:#183f2e;color:white}
+.product-list{display:grid;gap:9px}
+.product{text-align:left;display:grid;grid-template-columns:66px minmax(0,1fr) 22px;align-items:center;gap:10px;padding:8px}
+.product[aria-pressed=true]{border-color:#7c9a77;background:#f3f7f1}
+.product canvas{width:66px;height:60px;border-radius:8px;background:#f0e8dc}
+.product b,.product small{display:block}.product small{font-weight:400;color:var(--muted)}
+.check{font-size:16px;color:var(--green)}
+.empty{padding:15px;background:var(--soft);border-radius:12px}
+.plan-grid{display:grid;gap:10px}
+.plan-card{min-width:0;margin:0;background:#f9fbf7;border:1px solid #d0ddcc;border-radius:14px;padding:8px;overflow:hidden}
+.plan-card figcaption{font-size:12px;font-weight:740;padding:2px 5px 6px}
+.plan-card canvas{width:100%;height:auto;display:block;border-radius:8px}
+.legend{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:11px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}.swatch{width:12px;height:4px;border-radius:6px;background:#2c7450}.swatch.warn{height:9px;background:#c86657}
+.visual-note{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 2px 0;font-size:12px;color:var(--muted)}
+.visual-note strong{color:var(--green);font-size:17px;white-space:nowrap}
+.result{padding:13px;border-radius:12px;background:var(--soft);margin:10px 0}.result.alert{background:var(--warn);color:#75261e}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.stat{padding:11px;border:1px solid var(--line);border-radius:11px}
+.stat strong{font-size:24px;display:block;letter-spacing:-.05em}.stat span{color:var(--muted);font-size:12px}
+.compare-tabs{margin-bottom:12px}
+@media(min-width:850px){.workspace.comparison{grid-template-columns:minmax(245px,.65fr) minmax(0,1.7fr)}.comparison .plan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.shell{padding:0 16px 25px}header{height:60px}nav ol{margin-top:14px;gap:5px}nav li{font-size:11px}.hero{margin:22px 0 17px}.hero p{font-size:13px}.workspace{display:flex;flex-direction:column;gap:12px}.visual,.panel{width:100%;border-radius:17px}.visual{order:-1;padding:12px}.panel{padding:16px}.workspace[data-step="2"] .visual{order:0}.comparison .plan-card.is-inactive{display:none}}
+@media(min-width:721px) and (max-width:849px){.comparison .plan-card.is-inactive{display:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header><div class="brand"><span class="mark" aria-hidden="true">⌂</span> ROOMMATE AI</div><span class="demo">시연용 데이터</span></header>
+<nav aria-label="진행 단계"><ol id="progress"></ol></nav>
+<main>
+  <div class="hero"><h1 id="headline"></h1><p id="intro"></p></div>
+  <div id="workspace" class="workspace"><section class="panel" id="controls" aria-label="현재 단계 입력"></section><aside class="visual" id="visual" aria-label="평면도"></aside></div>
+</main>
+</div>
+<script>
+const routineExample='내가 책상에서 공부하는 동안 룸메가 건조대를 펼친 채 현관에서 옷장으로 가요.';
+const roomSize={width:360,height:270};
+const products=[
+  {id:'oak',kind:'수납장',style:'원목',name:'오크 2단 수납장',price:159000,width:78,depth:35,tone:'#af825b'},
+  {id:'low',kind:'수납장',style:'원목',name:'낮은 원목 수납장',price:189000,width:80,depth:38,tone:'#b89770'},
+  {id:'modern',kind:'수납장',style:'모던',name:'슬림 그레이 수납장',price:139000,width:60,depth:32,tone:'#818a82'},
+  {id:'desk',kind:'책상',style:'원목',name:'오크 작업 책상',price:179000,width:110,depth:52,tone:'#ad845f'},
+  {id:'shelf',kind:'선반',style:'미니멀',name:'화이트 3단 선반',price:99000,width:60,depth:27,tone:'#aaa69a'}
+];
+const steps=['조건 선택','가구 찾기','방에 배치','동선 확인','배치 비교'];
+const headings=[
+  ['가구를 들이기 전, 동선을 먼저 확인해요','가구를 고르고 내 방에 놓아본 뒤, 평소 생활에서 통로가 어떻게 달라지는지 확인해 보세요.'],
+  ['내 조건에 맞는 가구','마음에 드는 가구를 골라 평면도에 놓아보세요.'],
+  ['내 방에 가구 놓아보기','가구 위치를 정하고 어떤 상황에서 이동하는지 알려주세요.'],
+  ['내 방에서 어디가 좁을까요?','현관에서 옷장으로 가는 길을 평면도에서 확인해 보세요.'],
+  ['가구를 옮기면 얼마나 달라질까요?','창가 쪽으로 건조대를 옮겼을 때 통로가 어떻게 달라지는지 비교해 보세요.']
+];
+const state={step:0,kind:'수납장',style:'원목',budget:'20',maxWidth:'80',product:'oak',position:0,rotated:false,width:'360',height:'270',passage:'65',heightCm:'',age:'',weight:'',routine:routineExample,applied:false,view:'before',details:false};
+const $=selector=>document.querySelector(selector);
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const won=value=>new Intl.NumberFormat('ko-KR').format(value)+'원';
+const currentProduct=()=>products.find(p=>p.id===state.product);
+const matches=()=>products.filter(p=>p.kind===state.kind&&p.style===state.style&&p.price<=Number(state.budget)*10000&&p.width<=Number(state.maxWidth));
+const supported=()=>state.routine.trim()===routineExample&&Number(state.width)===roomSize.width&&Number(state.height)===roomSize.height&&state.product==='oak'&&state.position===0&&!state.rotated&&Number(state.passage)>0;
+function field(label,key,unit){
+  return '<label class="field"><span>'+label+'</span><span class="entry"><input inputmode="numeric" data-field="'+key+'" value="'+escapeHtml(state[key])+'"><small>'+unit+'</small></span></label>';
+}
+function chips(label,key,options){
+  return '<fieldset><legend>'+label+'</legend><div class="options">'+options.map(value=>'<button class="chip" data-option="'+key+'" data-value="'+value+'" aria-pressed="'+(state[key]===value)+'">'+value+'</button>').join('')+'</div></fieldset>';
+}
+function footer(label,action,disabled=false){
+  return '<div class="footer">'+(state.step?'<button data-action="back">이전</button>':'')+'<button class="primary" data-action="'+action+'" '+(disabled?'disabled':'')+'>'+label+'<span aria-hidden="true">→</span></button></div>';
+}
+function stat(label,value){
+  return '<div class="stat"><span>'+label+'</span><strong>'+value+'</strong></div>';
+}
+function controls(){
+  if(state.step===0)return '<h2>어떤 가구가 필요하세요?</h2>'+chips('가구 종류','kind',['수납장','책상','선반'])+chips('선호 스타일','style',['원목','모던','미니멀'])+'<div class="inputs">'+field('예산','budget','만 원 이하')+field('최대 가로폭','maxWidth','cm')+'</div>'+footer('가구 찾아보기','search');
+  if(state.step===1){
+    const list=matches();
+    return '<h2>찾은 가구 '+list.length+'개</h2>'+(list.length?'<div class="product-list">'+list.map(p=>'<button class="product" data-product="'+p.id+'" aria-pressed="'+(p.id===state.product)+'"><canvas data-item="'+p.id+'" width="132" height="120" aria-hidden="true"></canvas><span><b>'+p.name+'</b><small>'+p.width+' × '+p.depth+'cm · '+p.style+'</small><b>'+won(p.price)+'</b></span><span class="check" aria-hidden="true">'+(p.id===state.product?'✓':'')+'</span></button>').join('')+'</div>':'<p class="empty">조건에 맞는 상품이 없어요. 예산이나 가로폭을 바꿔보세요.</p>')+footer('내 방에 배치하기','place',!list.length);
+  }
+  if(state.step===2)return '<h2>방과 생활 정보</h2><div class="actions"><button data-action="move">선택 가구 위치 바꾸기</button><button data-action="rotate">90° 회전</button></div><br><div class="inputs">'+field('방 가로','width','cm')+field('방 세로','height','cm')+'</div>'+field('필요한 통로 폭','passage','cm')+'<details '+(state.details?'open':'')+'><summary>신체 정보 · 선택 입력</summary><div class="inputs">'+field('키','heightCm','cm')+field('나이','age','세')+field('몸무게','weight','kg')+'</div><p class="help">이 시연은 직접 설정한 통로 폭을 기준으로 비교해요.</p></details><label class="field"><span>평소 어떻게 움직이나요?</span><textarea data-field="routine">'+escapeHtml(state.routine)+'</textarea></label><button data-action="reset-demo">시연 예시 불러오기</button>'+footer('시뮬레이션 실행','simulate');
+  if(state.step===3){
+    if(!supported())return '<h2>이 조건의 결과는 준비 중이에요</h2><p class="empty">시연 예시를 불러오면 현재 배치와 추천 배치를 비교할 수 있어요.</p>'+footer('시연 예시 불러오기','return-demo');
+    const width=state.applied?72:55;
+    const narrow=width<Number(state.passage);
+    return '<h2>'+(narrow?'설정한 폭보다 좁아요':'설정한 폭을 충족해요')+'</h2><div class="stats">'+stat('가장 좁은 통로',width+'cm')+stat('설정한 통로 폭',escapeHtml(state.passage)+'cm')+'</div><p class="result '+(narrow?'alert':'')+'">'+(state.applied?'건조대를 창가로 옮긴 배치를 보고 있어요.':'건조대를 펼치면 옷장 앞 통로가 좁아져요.')+'</p>'+footer('배치 비교 보기','compare');
+  }
+  return '<h2>가장 좁은 통로 비교</h2><div class="stats">'+stat('기존 배치','55cm')+stat('건조대를 옮긴 배치','72cm')+'</div><p class="result">건조대를 창가로 옮기면 통로가 <strong>17cm</strong> 넓어져요.'+(Number(state.passage)>72?' 다만 설정한 통로 폭에는 아직 못 미쳐요.':'')+'</p><div class="actions"><button data-action="edit">내 방 배치로 돌아가기</button><button data-action="simulate">다시 시뮬레이션</button></div>'+footer('추천 배치 적용','apply');
+}
+function planCard(mode,label,extra=''){
+  return '<figure class="plan-card '+extra+'"><figcaption>'+label+'</figcaption><canvas width="960" height="660" data-plan="'+mode+'" role="img" aria-label="'+label+' 평면도"></canvas></figure>';
+}
+function visual(){
+  const isResult=state.step>=3&&supported();
+  const header='<div class="visual-top"><strong>내 방 평면도</strong><span>시연용 원룸</span></div>';
+  const legend='<div class="legend"><span><i class="swatch"></i>이동 경로</span><span><i class="swatch warn"></i>설정 폭보다 좁은 곳</span></div>';
+  if(state.step===4){
+    return header+'<div class="compare-tabs"><button data-view="before" aria-pressed="'+(state.view==='before')+'">기존 배치</button><button data-view="after" aria-pressed="'+(state.view==='after')+'">추천 배치</button></div><div class="plan-grid">'+planCard('before','기존 배치 · 55cm',state.view==='after'?'is-inactive':'')+planCard('after','추천 배치 · 72cm',state.view==='before'?'is-inactive':'')+'</div>'+legend;
+  }
+  const mode=isResult?(state.applied?'after':'before'):'edit';
+  return header+planCard(mode,isResult?'현관 → 옷장':'방 배치 미리보기')+(isResult?legend:state.step<2?'<div class="visual-note"><span>배치에 따라 달라지는 통로 폭</span><strong>55 → 72cm</strong></div>':'<div class="visual-note"><span>창가 또는 벽 쪽으로 가구를 옮겨보세요.</span></div>');
+}
+function box(ctx,x,y,w,h,r,fill,stroke){
+  ctx.beginPath();ctx.roundRect(x,y,w,h,r);
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}
+}
+function line(ctx,points,color,width,dash=[]){
+  ctx.beginPath();ctx.setLineDash(dash);ctx.moveTo(...points[0]);
+  points.slice(1).forEach(point=>ctx.lineTo(...point));
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();ctx.setLineDash([]);
+}
+function label(ctx,value,x,y,color='#253b2e',size=10){
+  ctx.fillStyle=color;ctx.font='600 '+size+'px "Noto Sans CJK KR", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(value,x,y);
+}
+function drawPlan(canvas){
+  const ctx=canvas.getContext('2d');
+  ctx.scale(2,2);
+  const mode=canvas.dataset.plan;
+  const result=mode!=='edit';
+  const after=mode==='after'||(mode==='edit'&&state.applied);
+  const narrow=(after?72:55)<Number(state.passage);
+  box(ctx,0,0,480,330,0,'#e9efe5');
+  box(ctx,40,25,400,282,3,'#e6d8c3','#a9ad9a');
+  for(let y=44;y<306;y+=18){
+    line(ctx,[[41,y],[439,y]],'#d4c3aa',.65);
+    const offset=((y-44)/18%3)*31;
+    for(let x=60+offset;x<440;x+=95)line(ctx,[[x,y-18],[x,y]],'#d4c3aa',.55);
+  }
+  line(ctx,[[40,257],[40,25],[440,25],[440,307],[98,307]],'#465447',4);
+  line(ctx,[[195,25],[290,25]],'#8ea9a4',6);
+  label(ctx,'창문',242,41,'#486760');
+  line(ctx,[[40,257],[98,307]],'#758375',1.5,[4,4]);
+  label(ctx,'현관',68,289);
+  box(ctx,58,49,106,54,4,'#be9b74','#a7815a');
+  box(ctx,72,53,45,18,3,'#e5d7bd');
+  label(ctx,'책상',111,88);
+  box(ctx,98,111,36,31,6,'#aebba6','#70846f');label(ctx,'의자',116,126);
+  box(ctx,361,43,58,86,5,'#c3ac91','#a18268');
+  line(ctx,[[390,48],[390,124]],'#a18268',1);label(ctx,'옷장',390,85);
+  const product=currentProduct();
+  if(product&&state.step>=2){
+    const nominalW=product.width*.72,nominalH=product.depth*.72;
+    const w=state.rotated?nominalH:nominalW,h=state.rotated?nominalW:nominalH;
+    const x=state.position===0?57:186,y=state.position===0?180:55;
+    box(ctx,x,y,w,h,3,'#cdb087','#99704c');
+    label(ctx,product.kind,x+w/2,y+h/2,'#412b1b',9);
+  }
+  const rack=after?{x:236,y:62,w:77,h:36}:{x:253,y:139,w:83,h:49};
+  if(result&&narrow){
+    const hotspot=after?{x:314,y:103,w:45,h:31}:{x:333,y:129,w:48,h:66};
+    box(ctx,hotspot.x,hotspot.y,hotspot.w,hotspot.h,8,'#e8a596');
+  }
+  box(ctx,rack.x,rack.y,rack.w,rack.h,4,'#cad5c6','#77947b');
+  for(let i=1;i<=4;i++)line(ctx,[[rack.x+5,rack.y+i*rack.h/5],[rack.x+rack.w-5,rack.y+i*rack.h/5]],'#9bad9b',1);
+  box(ctx,rack.x+rack.w/2-23,rack.y+rack.h/2-8,46,16,4,'#e5eee1');
+  label(ctx,'건조대',rack.x+rack.w/2,rack.y+rack.h/2);
+  if(result){
+    const points=after?[[94,279],[165,279],[165,218],[332,218],[332,105],[354,105]]:[[94,279],[165,279],[165,218],[356,218],[356,105],[354,105]];
+    line(ctx,points,'#f6faf3',7);
+    line(ctx,points,narrow?'#9c3a31':'#276345',3.5,[6,5]);
+    for(const [x,y] of [points[0],points.at(-1)])box(ctx,x-4,y-4,8,8,4,'#2f694c');
+  }
+}
+function drawProduct(canvas){
+  const ctx=canvas.getContext('2d');
+  const p=products.find(item=>item.id===canvas.dataset.item);
+  ctx.scale(2,2);
+  box(ctx,0,0,66,60,0,'#ede5d7');
+  box(ctx,10,48,47,5,3,'#ddd1bd');
+  if(p.kind==='책상'){
+    box(ctx,9,22,48,6,2,p.tone);
+    box(ctx,13,27,4,22,1,'#79624e');box(ctx,49,27,4,22,1,'#79624e');
+  }else{
+    box(ctx,14,15,39,30,2,p.tone,'#8b7562');
+    line(ctx,[[16,30],[51,30]],'#655748',1);
+    box(ctx,18,45,4,5,1,'#79624e');box(ctx,45,45,4,5,1,'#79624e');
+    if(p.kind==='수납장')for(const y of [23,36])line(ctx,[[30,y],[36,y]],'#f4e7d8',1.4);
+  }
+}
+function render(){
+  const workspace=$('#workspace');
+  workspace.dataset.step=state.step+1;
+  workspace.classList.toggle('comparison',state.step===4);
+  $('#progress').innerHTML=steps.map((step,i)=>'<li '+(i===state.step?'aria-current="step"':i<state.step?'class="done"':'')+'>'+step+'</li>').join('');
+  $('#headline').textContent=headings[state.step][0];
+  $('#intro').textContent=headings[state.step][1];
+  $('#controls').innerHTML=controls();
+  $('#visual').innerHTML=visual();
+  document.querySelectorAll('[data-plan]').forEach(drawPlan);
+  document.querySelectorAll('[data-item]').forEach(drawProduct);
+}
+function go(step){
+  state.step=step;render();window.scrollTo(0,0);
+  $('#headline').tabIndex=-1;$('#headline').focus({preventScroll:true});
+}
+function resetExample(){
+  Object.assign(state,{kind:'수납장',style:'원목',budget:'20',maxWidth:'80',product:'oak',position:0,rotated:false,width:'360',height:'270',passage:'65',routine:routineExample,applied:false});
+}
+document.addEventListener('input',event=>{
+  const key=event.target.dataset.field;
+  if(key)state[key]=event.target.value;
+});
+document.addEventListener('toggle',event=>{if(event.target.matches('details'))state.details=event.target.open;},true);
+document.addEventListener('click',event=>{
+  const button=event.target.closest('button');
+  if(!button)return;
+  const {option,value,product,view,action}=button.dataset;
+  if(option){state[option]=value;render();return;}
+  if(product){state.product=product;state.applied=false;state.position=0;state.rotated=false;render();return;}
+  if(view){state.view=view;render();return;}
+  switch(action){
+    case 'back': go(state.step-1);break;
+    case 'search': {const found=matches();if(!found.some(p=>p.id===state.product))state.product=found[0]?.id;go(1);break;}
+    case 'place': go(2);break;
+    case 'move': state.position=1-state.position;render();break;
+    case 'rotate': state.rotated=!state.rotated;render();break;
+    case 'reset-demo': resetExample();render();break;
+    case 'return-demo': resetExample();go(2);break;
+    case 'simulate': go(3);break;
+    case 'compare': state.view=state.applied?'after':'before';go(4);break;
+    case 'edit': go(2);break;
+    case 'apply': state.applied=true;go(2);break;
+  }
+});
+render();
+</script>
+</body>
+</html>
