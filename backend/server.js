@@ -10,6 +10,7 @@ import { compareRoutes } from './routes.js';
 import { analyzeFloorplan, analyzeWalls, modelStatus, wallModelStatus } from './model-service.js';
 import { detectFurniture } from './furniture-service.js';
 import { predictTrajectory } from './trajectory-service.js';
+import { selectRoom } from './room-selection.js';
 
 const maxBodyBytes = 32 * 1024;
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend');
@@ -87,7 +88,7 @@ export function createApp() {
         return res.end(rows);
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/health') {
-        return json(res, 200, { status: 'ok', demo: true, wallModelReady: modelStatus().ready });
+        return json(res, 200, { status: 'ok', appVersion: 'room-selection-v2', demo: true, wallModelReady: modelStatus().ready });
       }
       if (req.method === 'GET' && url.pathname === '/api/v1/model/status') {
         return json(res, 200, modelStatus());
@@ -127,6 +128,9 @@ export function createApp() {
       if (req.method === 'POST' && url.pathname === '/api/v1/floorplans/analyze') {
         const body = await readJson(req, 12 * 1024 * 1024);
         return json(res, 200, await analyzeFloorplan(body.image));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/floorplans/select-room') {
+        return json(res, 200, selectRoom(await readJson(req, 2 * 1024 * 1024)));
       }
       if (req.method === 'POST' && url.pathname === '/api/v1/walls/analyze') {
         const body = await readJson(req, 12 * 1024 * 1024);

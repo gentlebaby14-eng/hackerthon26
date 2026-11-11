@@ -90,7 +90,7 @@ export async function analyzeFloorplan(imageDataUrl) {
   try {
     await writeFile(imagePath, bytes);
     const result = await new Promise((resolve, reject) => {
-      const child = spawn(process.env.PYTHON ?? (existsSync(projectPython) ? projectPython : 'python3'), [script, '--image', imagePath, '--checkpoint', checkpoint],
+      const child = spawn(process.env.PYTHON ?? (existsSync(windowsPython) ? windowsPython : existsSync(projectPython) ? projectPython : 'python3'), [script, '--image', imagePath, '--checkpoint', checkpoint],
         { cwd: root, windowsHide: true });
       let stdout = '', stderr = '';
       const timer = setTimeout(() => child.kill(), 120_000);
