@@ -225,3 +225,11 @@ test('반복 A* 결과의 히트맵과 모서리 접근 값은 계산된 경로�
   assert.ok(run('sim.success+sim.failures')===8);
   assert.equal(run('sim.corners.every(c=>c.count>0&&Number.isFinite(c.min))'),true);
 });
+
+test('가구가 통로를 막으면 벽을 통과하지 않고 접근 가능한 위치에서 멈춘다',()=>{
+  const {run}=editor();
+  run("state.width='3000';state.height='3000';state.passage='65';state.startPoint=[.2,.2];state.endPoint=[.8,.8];const barrier=[{id:'wall-furniture',name:'긴 수납장',x:.5,y:.5,w:300,d:45}];const blocked=findLayoutRoute(barrier,true)");
+  assert.equal(run('blocked.blocked'),true);
+  assert.ok(run('blocked.path.length')>1);
+  assert.equal(run('blocked.path.every(([x,y])=>roomCell(x,y)&&Math.abs(y-.5)>.075)'),true);
+});

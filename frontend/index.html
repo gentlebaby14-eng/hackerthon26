@@ -932,10 +932,10 @@ function itemClearance(item,others,x=item.x,y=item.y) {
   return Math.max(0,clearance*2);
 }
 function usableArea(items) {return Math.max(0,(roomWidth()*roomDepth()-items.reduce((sum,item)=>sum+item.w*item.d,0))/10000);}
-function routeBetween(items,start,end,passage='12') {
+function routeBetween(items,start,end,passage='12',partial=false) {
   const savedStart=state.startPoint,savedEnd=state.endPoint,savedPassage=state.passage;
   state.startPoint=start;state.endPoint=end;state.passage=passage;
-  const result=findLayoutRoute(items);
+  const result=findLayoutRoute(items,partial);
   state.startPoint=savedStart;state.endPoint=savedEnd;state.passage=savedPassage;
   return result;
 }
@@ -1201,6 +1201,11 @@ function paintLayout(canvas=$('#layout-plan')) {
   }
   if(simulation&&draft.showNarrow)for(const narrow of simulation.narrow.slice(0,5)){const [x,y]=map(narrow.point);ctx.fillStyle='#b34d48';ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();}
   if(simulation&&draft.showCorners)for(const corner of simulation.corners.slice(0,8)){const [x,y]=map([corner.x,corner.y]);ctx.fillStyle='#e48736';ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();ctx.stroke();}
+  if(simulation&&(!result?.path?.length||result.blocked)){
+    ctx.fillStyle='#651d35';ctx.fillRect(r.x+10,r.y+r.h/2-25,r.w-20,50);
+    ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+    ctx.fillText('동선이 막혔어요 · 가구 배치를 바꿔 주세요',r.x+r.w/2,r.y+r.h/2+5);
+  }
   for(const [point,color] of [[state.startPoint,'#47755a'],[state.endPoint,'#ab5f38']]) {
     if(!point) continue;
     const [x,y]=map(point);
@@ -1276,7 +1281,7 @@ function bindLayout() {
   };
 }
 
-function findLayoutRoute(items) {
+function findLayoutRoute(items,partial=false) {
   const cols=72, rows=72;
   const cellWidth=roomWidth()/cols, cellDepth=roomDepth()/rows;
   const radius=Number(state.passage)/2;
@@ -1297,19 +1302,22 @@ function findLayoutRoute(items) {
   };
   const cell=([x,y])=>Math.floor(y*rows)*cols+Math.floor(x*cols);
   const start=cell(state.startPoint), goal=cell(state.endPoint);
-  if(!passable(start%cols,Math.floor(start/cols))||!passable(goal%cols,Math.floor(goal/cols))) return {path:null};
+  if(!passable(start%cols,Math.floor(start/cols))) return {path:null};
+  if(!partial&&!passable(goal%cols,Math.floor(goal/cols))) return {path:null};
   const costs=new Float64Array(cols*rows).fill(Infinity);
   const prev=new Int32Array(cols*rows).fill(-1);
   const estimate=index=>Math.abs(index%cols-goal%cols)*cellWidth+
     Math.abs(Math.floor(index/cols)-Math.floor(goal/cols))*cellDepth;
   const open=new Set([start]);
   costs[start]=0;
+  let closest=start,closestScore=estimate(start);
   while(open.size) {
     let index=-1,best=Infinity;
     for(const candidate of open) {
       const score=costs[candidate]+estimate(candidate);
       if(score<best){best=score;index=candidate;}
     }
+    if(estimate(index)<closestScore){closest=index;closestScore=estimate(index);}
     if(index===goal) {
       const path=[];
       for(let cursor=goal;cursor!==-1;cursor=prev[cursor]) {
@@ -1327,6 +1335,7 @@ function findLayoutRoute(items) {
       open.add(next);
     }
   }
+  if(partial&&closest!==start){const path=[];for(let cursor=closest;cursor!==-1;cursor=prev[cursor])path.push([(cursor%cols+.5)/cols,(Math.floor(cursor/cols)+.5)/rows]);return {path:path.reverse(),distance:costs[closest],blocked:true};}
   return {path:null};
 }
 
@@ -1430,11 +1439,12 @@ function seededRandom(seed) {
   return ()=>{value+=0x6D2B79F5;let t=value;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};
 }
 function simulationAccessPoint(item,items,door) {
-  for(const point of furnitureAccessPoints(item)) {
+  const points=furnitureAccessPoints(item);
+  for(const point of points) {
     const route=routeBetween(items,door,point,String(Math.max(10,Number(state.passage)||65)));
     if(route.path?.length)return point;
   }
-  return null;
+  return points[0]||null;
 }
 function pointClearance(point,items) {
   const [x,y]=point,wall=Math.min(x*roomWidth(),(1-x)*roomWidth(),y*roomDepth(),(1-y)*roomDepth());
@@ -1457,27 +1467,27 @@ function analyzeCorners(items,paths) {
   return results.filter(c=>c.count>0).sort((a,b)=>b.count-a.count||a.min-b.min);
 }
 function simulateLifePaths(items,sequences,seed) {
-  const base=findAnySafeRoute(items),runs=sequences.length,empty={runs,success:0,failures:runs,successRate:0,averageDistance:0,paths:[],heat:Array(32*32).fill(0),narrow:[],corners:[],notes:['방문에서 접근 가능한 생활 목적지를 찾지 못했습니다.']};
+  const base=findAnySafeRoute(items),runs=sequences.length,empty={runs,success:0,failures:runs,successRate:0,averageDistance:0,paths:[],blockedPaths:[],heat:Array(32*32).fill(0),narrow:[],corners:[],notes:['방문에서 접근 가능한 생활 목적지를 찾지 못했습니다.']};
   if(!base.path?.length)return empty;
   const door=base.path[0],byId=new Map(items.map(item=>[item.id,item])),nodes=new Map([['door',door]]);
   for(const item of items){const point=simulationAccessPoint(item,items,door);if(point)nodes.set(item.id,point);}
   const cache=new Map(),segment=(from,to)=>{
     const key=from+'>'+to;
-    if(!cache.has(key))cache.set(key,routeBetween(items,nodes.get(from),nodes.get(to),String(Math.max(10,Number(state.passage)||65))));
+    if(!cache.has(key))cache.set(key,routeBetween(items,nodes.get(from),nodes.get(to),String(Math.max(10,Number(state.passage)||65)),true));
     return cache.get(key);
   };
-  const paths=[],heat=Array(32*32).fill(0),narrowMap=new Map();let success=0,totalDistance=0,failures=0;
+  const paths=[],blockedPaths=[],heat=Array(32*32).fill(0),narrowMap=new Map();let success=0,totalDistance=0,failures=0;
   for(const requested of sequences) {
     const stops=['door',...requested];if(stops.length<2||stops.some(id=>!nodes.has(id))){failures++;continue;}
     let path=[],distance=0,failed=false;
-    for(let i=1;i<stops.length;i++){const part=segment(stops[i-1],stops[i]);if(!part.path?.length){failed=true;break;}path.push(...part.path.slice(path.length?1:0));distance+=part.distance||0;}
-    if(failed){failures++;continue;}success++;totalDistance+=distance;paths.push(path);
+    for(let i=1;i<stops.length;i++){const part=segment(stops[i-1],stops[i]);if(part.path?.length)path.push(...part.path.slice(path.length?1:0));if(!part.path?.length||part.blocked){failed=true;break;}distance+=part.distance||0;}
+    if(failed){failures++;if(path.length>1)blockedPaths.push(path);continue;}success++;totalDistance+=distance;paths.push(path);
     for(const point of path){const hx=Math.max(0,Math.min(31,Math.floor(point[0]*32))),hy=Math.max(0,Math.min(31,Math.floor(point[1]*32)));heat[hy*32+hx]++;const c=pointClearance(point,items),width=c.distance*2;if(width<Number(state.passage)){const key=c.label+'-'+hx+'-'+hy;const old=narrowMap.get(key);if(!old||width<old.width)narrowMap.set(key,{point,width,obstacle:c.label});}}
   }
   const narrow=[...narrowMap.values()].sort((a,b)=>a.width-b.width).slice(0,8),notes=narrow.slice(0,3).map(n=>'경로의 '+n.obstacle+' 인접 구간 통로가 약 '+Math.round(n.width)+'cm로 설정한 최소 폭보다 좁습니다.');
   if(failures)notes.push('목적지 조합 '+failures+'회는 벽 또는 가구로 경로가 막혀 실패했습니다.');
   const corners=analyzeCorners(items,paths);
-  return {runs,success,failures,successRate:runs?Math.round(success/runs*1000)/10:0,averageDistance:success?Math.round(totalDistance/success*10)/10:0,paths,heat,narrow,corners,notes};
+  return {runs,success,failures,successRate:runs?Math.round(success/runs*1000)/10:0,averageDistance:success?Math.round(totalDistance/success*10)/10:0,paths,blockedPaths,heat,narrow,corners,notes};
 }
 function generateLifeSequences(ids,count,seed) {
   const random=seededRandom(seed),activityStops={차분함:2,보통:3,활동적:4}[state.activity]||3,sequences=[];
@@ -1491,8 +1501,8 @@ async function runLifeSimulation() {
   const allIds=after.map(item=>item.id),allSequences=generateLifeSequences(allIds,count,seed),afterAll=simulateLifePaths(after,allSequences,seed);
   if(allIds.length>common.length)afterResult.notes.push('공통 가구 비교와 별도로 새 가구를 포함한 결과는 성공 '+afterAll.success+'/'+count+'회, 평균 '+metricText(afterAll.averageDistance,'cm')+'입니다.');
   draft.simulation={seed,count,before:beforeResult,after:afterResult,afterAll,baby:state.roomUse==='아기방'&&Number(state.age)<=24};draft.simulationBusy=false;draft.view='after';
-  const first=afterResult.paths[0];draft.route=null;draft.compare=null;
-  if(first){draft.route={path:first,distance:first.slice(1).reduce((sum,p,i)=>sum+Math.hypot((p[0]-first[i][0])*roomWidth(),(p[1]-first[i][1])*roomDepth()),0)};state.startPoint=first[0];state.endPoint=first.at(-1);}
+  const blocked=afterResult.blockedPaths[0],first=blocked||afterResult.paths[0];draft.route=null;draft.compare=null;
+  if(first){draft.route={path:first,blocked:!!blocked,distance:first.slice(1).reduce((sum,p,i)=>sum+Math.hypot((p[0]-first[i][0])*roomWidth(),(p[1]-first[i][1])*roomDepth()),0)};state.startPoint=first[0];state.endPoint=first.at(-1);}
   if(beforeResult.paths[0])draft.compare={path:beforeResult.paths[0],distance:beforeResult.averageDistance};
   if(!first){state.startPoint=null;state.endPoint=null;stopLayoutMotion(true);}
   render();
@@ -1573,7 +1583,7 @@ function drawWalkingCharacter(ctx,[x,y],targetAngle,phase,moving,inTransit=false
 }
 function playLayout(restart=false) {
   let result=draft.view==='before'?draft.compare:draft.route;
-  if(!result?.path&&prepareAutomaticSimulation())result=draft.view==='before'?draft.compare:draft.route;
+  if(draft.page!==5&&!result?.path&&prepareAutomaticSimulation())result=draft.view==='before'?draft.compare:draft.route;
   if(!result?.path)return;
   if(restart||layoutMotion.progress>=1)stopLayoutMotion(true);
   layoutMotion.playing=true;layoutMotion.last=null;
