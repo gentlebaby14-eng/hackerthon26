@@ -22,6 +22,7 @@
       <section class="card stack" aria-label="입력">
         <div><span class="badge" id="model-badge">모델 상태 확인 중</span><p class="hint" id="model-message" style="margin-top:6px"></p></div>
         <div><h2>1. 평면도 구조 인식</h2><label class="field">평면도 이미지<input type="file" id="file" accept="image/png,image/jpeg,image/webp"></label></div>
+        <div><h2>사진으로 가구 넣기</h2><label class="field">가구 사진<input type="file" id="furniture-photo" accept="image/png,image/jpeg,image/webp"></label><p class="hint" id="furniture-status">사진을 올리면 YOLO-World가 가구 종류와 위치를 찾습니다.</p></div>
         <div class="actions"><button class="btn primary" id="analyze" disabled>벽·문·창문 찾기</button><button class="btn" id="sample">공식 벽 정답 체험</button></div>
         <p class="hint">공식 정답 체험은 AI 예측이 아니며 현재 포함된 벽 정답만 보여줍니다.</p>
         <button class="btn primary" id="simulate-room" hidden>이 방에서 시뮬레이션 →</button>
@@ -103,6 +104,7 @@ $('file').addEventListener('change',async event=>{
   if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>8_000_000){setStatus('8MB 이하 PNG/JPEG/WebP를 선택해 주세요.',true);return}
   try{const reader=new FileReader();const data=await new Promise((resolve,reject)=>{reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('파일을 읽지 못했어요.'));reader.readAsDataURL(file)});state.image=await loadImage(data);state.imageData=data;state.source='upload';$('source-badge').textContent='업로드한 도면';resetAnalysis();fitCanvas();setStatus(state.modelReady?'벽·문·창문 찾기를 눌러 주세요.':'세 종류 인식 모델이 준비되지 않았어요.',!state.modelReady)}catch(error){setStatus(error.message,true)}
 });
+$('furniture-photo').addEventListener('change',async event=>{const file=event.target.files?.[0];if(!file)return;if(file.size>8_000_000){$('furniture-status').textContent='8MB 이하 사진을 선택해 주세요.';return}const reader=new FileReader();reader.onload=async()=>{ $('furniture-status').textContent='YOLO-World가 가구를 찾는 중이에요…';try{const response=await fetch('/api/v1/furniture/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:reader.result})});const data=await response.json();if(!response.ok)throw new Error(data.error?.message||'인식 실패');$('furniture-status').textContent=data.items.length?data.items.map(item=>`${item.type} ${(item.confidence*100).toFixed(0)}%`).join(' · ')+' · 배치 전 실제 크기를 확인해 주세요.':'가구를 찾지 못했어요.'}catch(error){$('furniture-status').textContent=error.message}};reader.readAsDataURL(file)});
 $('sample').addEventListener('click',async()=>{
   try{
     const image=await loadImage('/sample/floorplan.png');const response=await fetch('/sample/wall-mask-grid.json');if(!response.ok)throw new Error('정답 마스크를 읽지 못했어요.');const rows=await response.json();
