@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 function sceneModel() {
@@ -20,7 +20,13 @@ test('두 시나리오와 추천 상품 묶음을 제공한다', () => {
   assert.equal(run("scenarioProducts.baby.filter(p => p.group === '놀이매트').length"), 3);
   assert.equal(run('presets.baby.age'), 1.5);
   assert.equal(run("scenarioProducts.bedroom.filter(p => p.url.startsWith('https://')).length"), 3);
-  assert.equal(run("scenarioProducts.baby.filter(p => p.group === '장난감 수납장' && p.url.startsWith('https://')).length"), 2);
+  assert.equal(run("scenarioProducts.baby.filter(p => p.group === '장난감 수납장' && p.url.startsWith('https://')).length"), 3);
+  const items = run('[...scenarioProducts.bedroom,...scenarioProducts.baby].map(p=>({imageUrl:p.imageUrl,url:p.url,price:p.price}))');
+  for (const item of items) {
+    assert.ok(existsSync(new URL(`../../frontend/${item.imageUrl}`, import.meta.url)));
+    assert.match(item.url, /^https:\/\/(?:brand|smartstore)\.naver\.com\//);
+    assert.ok(item.price > 0);
+  }
 });
 
 test('성인 방은 큰 침대의 기존 배치에서 멈추고 추천 배치에서는 이동을 완료한다', () => {
@@ -40,15 +46,16 @@ test('18개월 아기 방은 활동 경로와 수납장 문 간섭을 줄인다'
   assert.ok(run("routePoints().length") > run("sceneRoutes.baby.length"));
 });
 
-test('실제 상품의 사진·가격·판매처 링크를 기존 카드 구조에 표시한다', () => {
+test('저장된 실제 상품의 사진·가격·판매처 링크를 기존 카드 구조에 표시한다', () => {
   const run = sceneModel();
-  run("liveProducts=[{id:'live-1',kind:'침대',group:'침대',name:'실제 침대',price:429000,width:140,depth:200,seller:'판매처',imageUrl:'https://example.com/bed.jpg',url:'https://example.com/product/bed',score:null}];productSearchStatus='live';state.step=1;state.searchView='results';state.product='live-1'");
+  run("state.step=1;state.searchView='results';state.product='bed-q1'");
   const html = run('controls()');
-  assert.match(html, /<img src="https:\/\/example.com\/bed.jpg"/);
-  assert.match(html, /429,000원/);
-  assert.match(html, /href="https:\/\/example.com\/product\/bed"/);
-  assert.doesNotMatch(html, /★ null/);
-  assert.match(html, /실제 판매처 정보/);
+  assert.match(html, /<img src="assets\/products\/bed-q1.webp"/);
+  assert.match(html, /298,000원/);
+  assert.match(html, /href="https:\/\/brand.naver.com\/lemerebed\/products\/4221928734"/);
+  assert.match(html, /시연용 데이터 · 판매처 정보 저장본/);
+  assert.doesNotMatch(html, /더 찾아보기/);
+  assert.doesNotMatch(readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8'), /fetch\([^\n]*\/api\/v1\/products\/recommend/);
 });
 
 test('전체 프론트 스크립트에 문법 오류가 없다', () => {

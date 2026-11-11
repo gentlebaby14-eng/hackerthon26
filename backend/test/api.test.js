@@ -38,14 +38,14 @@ test('조건에 맞는 상품이 없으면 빈 목록을 반환한다', async ()
   assert.deepEqual(data.products, []);
 });
 
-test('실제 상품 추천 API는 잘못된 조건을 거절한다', async () => {
+test('실제 상품 추천 API는 Gemini를 호출하지 않고 중단 상태를 반환한다', async () => {
   const { status, data } = await request('/api/v1/products/recommend', 'POST', {
     roomUse: '침실', desiredFurnitureTypes: ['없는 가구'], existingFurniture: [],
     roomWidthMm: 3300, roomDepthMm: 2700,
     occupantAge: { value: 32, unit: 'years' }, activity: '보통'
   });
-  assert.equal(status, 400);
-  assert.equal(data.error.code, 'INVALID_INPUT');
+  assert.equal(status, 503);
+  assert.equal(data.error.code, 'PRODUCT_API_PAUSED');
 });
 
 test('현재 배치와 추천 배치의 경로, 막힌 구간, 폭을 반환한다', async () => {
