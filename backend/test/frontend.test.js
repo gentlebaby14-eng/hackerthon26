@@ -55,3 +55,22 @@ test('전체 프론트 스크립트에 문법 오류가 없다', () => {
   const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8');
   assert.doesNotThrow(() => new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]));
 });
+
+test('앱을 열면 첫 화면의 소개와 가구 찾기 버튼을 렌더링한다', async () => {
+  const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8');
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const nodes = new Map(['#workspace', '.shell', 'main', '#progress', '#headline', '#intro', '#controls', '#visual',
+    '#chat', '#chat-open', '#chat-close', '#chat-form', '#chat-result'].map(selector =>
+    [selector, { dataset: {}, classList: { toggle() {} }, innerHTML: '', textContent: '', hidden: false }]));
+  const document = {
+    querySelector: selector => nodes.get(selector) ?? null,
+    querySelectorAll: () => [],
+    addEventListener() {}
+  };
+  const context = vm.createContext({ document, fetch: async () => ({ json: async () => ({ ready: false, message: '준비 전' }) }) });
+  vm.runInContext(script, context);
+  assert.match(nodes.get('#controls').innerHTML, /가구 찾아보기/);
+  assert.match(nodes.get('#visual').innerHTML, /editorial/);
+  assert.match(nodes.get('#headline').textContent, /가구/);
+  assert.equal(nodes.get('.shell').dataset.intro, true);
+});
