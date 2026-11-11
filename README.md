@@ -23,8 +23,8 @@ Node.js 20 이상에서 `backend` 폴더의 `npm start`를 실행하고 http://1
 
 ## 시연 범위
 
-- 실제 판매 상품을 찾기 위한 Gemini 프롬프트와 응답 형식은 [backend/prompts/gemini-product-recommendation.md](backend/prompts/gemini-product-recommendation.md)에 정리했습니다. 실시간 검색은 아직 연결되지 않았습니다.
-- 상품·가격·가구 일러스트는 예시이며 실시간 검색은 연결 전입니다. 판매 사이트 검색 링크를 제공합니다.
+- Gemini API 키가 설정되면 실제 판매처의 상품 상세 페이지에서 상품명·가격·사진·치수를 확인해 추천합니다. 프롬프트와 응답 형식은 [backend/prompts/gemini-product-recommendation.md](backend/prompts/gemini-product-recommendation.md)에 있습니다.
+- API 키가 없거나 상품 검색에 실패하면 화면에 `시연용 데이터`라고 표시하고 기존 예시 상품을 보여줍니다. 기존 상품 일러스트와 일부 판매 링크는 시연용입니다.
 - 업로드 사진은 브라우저에서 색감을 추출해 예시 후보 순서에 반영합니다. 실제 방 구조·치수는 자동 복원하지 않습니다.
 - 생활 패턴과 활동성을 수정할 수 있습니다. 활동적일수록 예시 이동 경로와 탐색 범위가 커집니다.
 - 시뮬레이션은 예시 방의 이동 범위와 선택 가구의 오른쪽 앞 모서리를 비교하며 실제 안전성을 판정하지 않습니다.

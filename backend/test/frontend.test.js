@@ -39,3 +39,19 @@ test('18개월 아기 방은 활동 경로와 수납장 문 간섭을 줄인다'
   assert.equal(run("overlap('after').at"), Infinity);
   assert.ok(run("routePoints().length") > run("sceneRoutes.baby.length"));
 });
+
+test('실제 상품의 사진·가격·판매처 링크를 기존 카드 구조에 표시한다', () => {
+  const run = sceneModel();
+  run("liveProducts=[{id:'live-1',kind:'침대',group:'침대',name:'실제 침대',price:429000,width:140,depth:200,seller:'판매처',imageUrl:'https://example.com/bed.jpg',url:'https://example.com/product/bed',score:null}];productSearchStatus='live';state.step=1;state.searchView='results';state.product='live-1'");
+  const html = run('controls()');
+  assert.match(html, /<img src="https:\/\/example.com\/bed.jpg"/);
+  assert.match(html, /429,000원/);
+  assert.match(html, /href="https:\/\/example.com\/product\/bed"/);
+  assert.doesNotMatch(html, /★ null/);
+  assert.match(html, /실제 판매처 정보/);
+});
+
+test('전체 프론트 스크립트에 문법 오류가 없다', () => {
+  const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8');
+  assert.doesNotThrow(() => new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]));
+});

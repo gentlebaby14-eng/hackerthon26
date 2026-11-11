@@ -11,7 +11,7 @@ npm start
 
 기본 주소는 `http://127.0.0.1:3000`입니다. `PORT` 환경 변수로 포트를 바꿀 수 있습니다. `npm test`로 API 테스트를 실행합니다. npm 패키지 설치는 필요하지 않습니다.
 Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
-`backend/.env`가 있으면 서버가 자동으로 읽습니다. `API_KEY=` 뒤에 값을 넣을 수 있지만, 현재는 외부 API를 호출하지 않아 이 변수는 아직 사용하지 않습니다. `.env`는 Git에서 제외됩니다.
+`backend/.env.example`을 `backend/.env`로 복사하고 `GEMINI_API_KEY=` 뒤에 키를 넣으면 실제 판매 상품 검색을 사용할 수 있습니다. `.env`는 Git에서 제외됩니다. 기존 `API_KEY` 이름도 읽습니다.
 브라우저에서 `http://127.0.0.1:3000`을 열면 기존 앱, `http://127.0.0.1:3000/floorplan.html`을 열면 새 도면 화면이 나옵니다.
 
 ## API
@@ -21,6 +21,7 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 | `GET /api/v1/health` | 상태 확인 |
 | `GET /api/v1/demo` | 기본 입력값, 상품, 평면도와 좌표 |
 | `GET /api/v1/products?kind=수납장&style=원목&budget=20&maxWidth=80` | 예산(만원)과 최대 폭(cm)으로 상품 검색 |
+| `POST /api/v1/products/recommend` | Gemini 검색과 판매처 페이지 확인을 거친 상품 추천 |
 | `GET /api/v1/products/oak` | 상품 상세 |
 | `POST /api/v1/simulations` | 현재·추천 배치의 경로, 위험 구간, 최소 통로 폭 비교 |
 | `POST /api/v1/chat` | 키워드별 고정 상담 답변 |
@@ -47,6 +48,10 @@ Windows에서는 `start-backend.bat`을 더블 클릭해도 됩니다.
 
 U-Net 가중치는 `ai/checkpoints/walls.pt`에 있어야 합니다. 별도 가상환경을 쓴다면 서버 시작 전 `PYTHON` 환경 변수에 해당 Python 실행 파일을 지정하세요. 가중치가 없으면 분석 API는 `503 MODEL_NOT_READY`를 반환합니다. 공식 정답 마스크를 통한 화면 체험은 학습 없이 가능합니다.
 
-기존 55cm·72cm 시연 API는 그대로 유지하며 실제 경로 계산 결과와 혼동하지 않도록 `demo: true`를 반환합니다. 주소 크롤링, 상품 웹 검색, 3D 시뮬레이션, 사용자 데이터 저장은 아직 구현하지 않았습니다.
+`POST /api/v1/products/recommend`는 조건 선택 화면의 방 용도·가구 종류·현재 가구·방 크기·연령·활동성을 받아 종류마다 검증된 상품 최대 3개를 반환합니다. Gemini API의 Google Search와 URL Context로 후보를 찾고, 허용된 판매처의 상품 상세 페이지에서 상품명·가격·사진·치수를 확인하지 못하면 제외합니다. API 키가 없으면 `503 GEMINI_NOT_CONFIGURED`를 반환하며 화면에는 `시연용 데이터`가 표시됩니다. 프롬프트와 입력 예시는 [prompts/gemini-product-recommendation.md](prompts/gemini-product-recommendation.md)에 있습니다. 가격과 재고는 판매처에서 다시 확인해야 합니다.
+
+Gemini가 `429`를 반환하면 `GEMINI_QUOTA`로 안내하고 시연용 결과를 표시합니다. 이 경우 [Google AI Studio의 할당량](https://aistudio.google.com/rate-limit)을 확인하세요. `GEMINI_MODEL` 환경 변수로 사용 가능한 모델을 지정할 수 있습니다.
+
+기존 55cm·72cm 시연 API는 그대로 유지하며 실제 경로 계산 결과와 혼동하지 않도록 `demo: true`를 반환합니다. 주소 크롤링, 3D 시뮬레이션, 사용자 데이터 저장은 아직 구현하지 않았습니다.
 
 로컬 웹앱을 `file://`로 열어도 API 호출이 가능하도록 CORS를 허용합니다. 배포 단계에서는 허용 출처를 제한해야 합니다.
