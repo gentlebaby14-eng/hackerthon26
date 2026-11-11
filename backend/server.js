@@ -8,6 +8,7 @@ import { defaultState, plan, products } from './data.js';
 import { ApiError, chat, searchProducts, simulate } from './logic.js';
 import { compareRoutes } from './routes.js';
 import { analyzeFloorplan, analyzeWalls, modelStatus, wallModelStatus } from './model-service.js';
+import { detectFurniture } from './furniture-service.js';
 
 const maxBodyBytes = 32 * 1024;
 const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend');
@@ -129,6 +130,10 @@ export function createApp() {
       if (req.method === 'POST' && url.pathname === '/api/v1/walls/analyze') {
         const body = await readJson(req, 12 * 1024 * 1024);
         return json(res, 200, await analyzeWalls(body.image));
+      }
+      if (req.method === 'POST' && url.pathname === '/api/v1/furniture/detect') {
+        const body = await readJson(req, 12 * 1024 * 1024);
+        return json(res, 200, await detectFurniture(body.image));
       }
       if (req.method === 'POST' && url.pathname === '/api/v1/routes/compare') {
         const body = await readJson(req, 512 * 1024);
